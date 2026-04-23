@@ -27,6 +27,28 @@ public class FormDefinition {
     public List<FieldMapping> getFields() { return fields; }
     public int size() { return fields.size(); }
 
+    // Private no-arg constructor for the configure()-time sentinel (empty fields list).
+    private FormDefinition() {
+        this.fields = Collections.emptyList();
+    }
+
+    /**
+     * Validates that the required columns are present in the spec and returns a sentinel
+     * FormDefinition with no fields. Used at configure() time when no row data is available.
+     */
+    public static FormDefinition fromSpec(final DataTableSpec spec)
+            throws InvalidSettingsException {
+        if (findColumnIndex(spec, "field_name") < 0) {
+            throw new InvalidSettingsException(
+                "Form definition table is missing required column 'field_name'");
+        }
+        if (findColumnIndex(spec, "value_cell") < 0) {
+            throw new InvalidSettingsException(
+                "Form definition table is missing required column 'value_cell'");
+        }
+        return new FormDefinition();
+    }
+
     public static FormDefinition fromDataTable(final BufferedDataTable table)
             throws InvalidSettingsException {
         final DataTableSpec spec = table.getDataTableSpec();
