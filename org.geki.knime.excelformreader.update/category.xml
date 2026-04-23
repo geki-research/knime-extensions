@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<site>
+  <feature url="features/org.geki.knime.excelformreader.feature_1.0.0.qualifier.jar"
+           id="org.geki.knime.excelformreader.feature"
+           version="1.0.0.qualifier">
+    <category name="geki.knime.extensions"/>
+  </feature>
+  <category-def name="geki.knime.extensions" label="geki-research KNIME Extensions"/>
+</site>

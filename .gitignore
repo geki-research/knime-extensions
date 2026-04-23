@@ -22,3 +22,23 @@
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
 replay_pid*
+
+# Eclipse
+.metadata/
+.classpath
+.project
+.settings/
+bin/
+*.launch
+
+# Tycho / Maven
+target/
+*/target/
+
+# KNIME
+*.knwf
+*.knime
+
+# OS
+.DS_Store
+Thumbs.db
