@@ -1,8 +1,13 @@
 package org.geki.knime.excelformreader;
 
+import java.io.File;
+import java.io.IOException;
+
 import org.knime.core.data.DataTableSpec;
 import org.knime.core.node.BufferedDataTable;
+import org.knime.core.node.CanceledExecutionException;
 import org.knime.core.node.ExecutionContext;
+import org.knime.core.node.ExecutionMonitor;
 import org.knime.core.node.InvalidSettingsException;
 import org.knime.core.node.NodeModel;
 import org.knime.core.node.NodeSettingsRO;
@@ -49,5 +54,17 @@ public class ExcelFormReaderNodeModel extends NodeModel {
     @Override
     protected void reset() {
         // nothing to reset
+    }
+
+    @Override
+    protected void loadInternals(final File nodeInternDir, final ExecutionMonitor exec)
+            throws IOException, CanceledExecutionException {
+        // no internals to load
+    }
+
+    @Override
+    protected void saveInternals(final File nodeInternDir, final ExecutionMonitor exec)
+            throws IOException, CanceledExecutionException {
+        // no internals to save
     }
 }

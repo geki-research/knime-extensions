@@ -3,7 +3,6 @@
 <plugin>
   <extension point="org.knime.workbench.repository.nodes">
     <node
-      id="org.geki.knime.excelformreader.ExcelFormReaderNodeFactory"
       factory-class="org.geki.knime.excelformreader.ExcelFormReaderNodeFactory"
       category-path="/io/read"
       after="org.knime.base.node.io.filereader.FileReaderNodeFactory"/>

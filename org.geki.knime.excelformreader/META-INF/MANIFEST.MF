@@ -10,3 +10,4 @@ Require-Bundle: org.knime.core;bundle-version="[5.3.0,6.0.0)",
  org.apache.poi;bundle-version="[5.0.0,6.0.0)"
 Export-Package: org.geki.knime.excelformreader
 Bundle-ActivationPolicy: lazy
+Automatic-Module-Name: org.geki.knime.excelformreader
