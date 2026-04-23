@@ -1,26 +1,66 @@
 package org.geki.knime.excelformreader.output;
 
-import org.knime.core.data.DataTableSpec;
+import java.util.ArrayList;
+import java.util.List;
 
+import org.geki.knime.excelformreader.domain.FieldMapping;
 import org.geki.knime.excelformreader.domain.FormDefinition;
+import org.knime.core.data.DataColumnSpec;
+import org.knime.core.data.DataColumnSpecCreator;
+import org.knime.core.data.DataTableSpec;
+import org.knime.core.data.DataType;
+import org.knime.core.data.def.BooleanCell;
+import org.knime.core.data.def.DoubleCell;
+import org.knime.core.data.def.LongCell;
+import org.knime.core.data.def.StringCell;
 
 public class OutputSpecFactory {
 
-    /**
-     * Creates a wide-format spec: one column per field, optional provenance columns appended.
-     */
-    public DataTableSpec createWideSpec(final FormDefinition def, final boolean includeProvenance) {
-        // TODO: map each FieldMapping.fieldName → DataColumnSpec using declared dataType;
-        //       append file_path (StringCell) and sheet_name (StringCell) if includeProvenance
-        throw new UnsupportedOperationException("Not yet implemented");
+    private OutputSpecFactory() {}
+
+    public static DataTableSpec createWideSpec(final FormDefinition definition,
+                                                final boolean includeProvenance) {
+        final List<DataColumnSpec> cols = new ArrayList<>();
+
+        if (includeProvenance) {
+            cols.add(new DataColumnSpecCreator("_source_file", StringCell.TYPE).createSpec());
+            cols.add(new DataColumnSpecCreator("_sheet_name", StringCell.TYPE).createSpec());
+        }
+
+        for (final FieldMapping mapping : definition.getFields()) {
+            cols.add(new DataColumnSpecCreator(
+                mapping.getFieldName(),
+                dataTypeFromString(mapping.getDataType())).createSpec());
+        }
+
+        return new DataTableSpec(cols.toArray(new DataColumnSpec[0]));
     }
 
-    /**
-     * Creates a long-format spec: field_name, value, optional provenance columns.
-     */
-    public DataTableSpec createLongSpec(final boolean includeProvenance) {
-        // TODO: build spec with columns: field_name (String), value (String),
-        //       and optionally file_path (String), sheet_name (String)
-        throw new UnsupportedOperationException("Not yet implemented");
+    public static DataTableSpec createLongSpec(final boolean includeProvenance) {
+        final List<DataColumnSpec> cols = new ArrayList<>();
+
+        if (includeProvenance) {
+            cols.add(new DataColumnSpecCreator("_source_file", StringCell.TYPE).createSpec());
+            cols.add(new DataColumnSpecCreator("_sheet_name", StringCell.TYPE).createSpec());
+        }
+
+        cols.add(new DataColumnSpecCreator("field_name", StringCell.TYPE).createSpec());
+        cols.add(new DataColumnSpecCreator("value", StringCell.TYPE).createSpec());
+
+        return new DataTableSpec(cols.toArray(new DataColumnSpec[0]));
+    }
+
+    private static DataType dataTypeFromString(final String dataType) {
+        if (dataType == null) {
+            return StringCell.TYPE;
+        }
+        switch (dataType.trim().toLowerCase()) {
+            case "int":     return LongCell.TYPE;
+            case "double":  return DoubleCell.TYPE;
+            case "boolean": return BooleanCell.TYPE;
+            case "date":    return StringCell.TYPE;
+            case "string":
+            default:        return StringCell.TYPE;
+        }
     }
 }

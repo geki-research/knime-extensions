@@ -1,26 +1,66 @@
 package org.geki.knime.excelformreader.output;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import org.geki.knime.excelformreader.domain.FieldMapping;
+import org.geki.knime.excelformreader.domain.FormDefinition;
 import org.knime.core.data.DataCell;
 import org.knime.core.data.DataRow;
 import org.knime.core.data.DataTableSpec;
+import org.knime.core.data.DataType;
+import org.knime.core.data.RowKey;
+import org.knime.core.data.def.DefaultRow;
+import org.knime.core.data.def.StringCell;
 
 public class LongOutputBuilder {
 
-    /**
-     * Builds one DataRow per field from extracted values (long/unpivoted format).
-     *
-     * @param file   source file path string (used for provenance column)
-     * @param sheet  source sheet name (used for provenance column)
-     * @param values map from field name to DataCell as produced by ExcelFormExtractor
-     * @param spec   the DataTableSpec for the output table
-     */
-    public List<DataRow> buildRows(final String file, final String sheet,
-                                   final Map<String, DataCell> values, final DataTableSpec spec) {
-        // TODO: emit one row per entry in values: field_name, value.toString(),
-        //       optionally file_path and sheet_name
-        throw new UnsupportedOperationException("Not yet implemented");
+    private final DataTableSpec spec;
+    private final boolean includeProvenance;
+
+    public LongOutputBuilder(final DataTableSpec spec, final boolean includeProvenance) {
+        this.spec = spec;
+        this.includeProvenance = includeProvenance;
+    }
+
+    public List<DataRow> buildRows(final String sourceFile,
+                                    final String sheetName,
+                                    final Map<String, DataCell> extractedValues,
+                                    final FormDefinition definition,
+                                    final long rowIndexBase) {
+        final List<DataRow> rows = new ArrayList<>();
+        int i = 0;
+
+        for (final FieldMapping mapping : definition.getFields()) {
+            final DataCell[] cells = new DataCell[spec.getNumColumns()];
+            int col = 0;
+
+            if (includeProvenance) {
+                cells[col++] = new StringCell(sourceFile != null ? sourceFile : "");
+                cells[col++] = new StringCell(sheetName != null ? sheetName : "");
+            }
+
+            cells[col++] = new StringCell(mapping.getFieldName());
+
+            final DataCell raw = (extractedValues != null)
+                ? extractedValues.get(mapping.getFieldName())
+                : null;
+            if (raw == null || raw.isMissing()) {
+                cells[col++] = DataType.getMissingCell();
+            } else {
+                cells[col++] = new StringCell(raw.toString());
+            }
+
+            // Fill any unexpected trailing slots defensively
+            while (col < cells.length) {
+                cells[col++] = DataType.getMissingCell();
+            }
+
+            rows.add(new DefaultRow(new RowKey("Row" + (rowIndexBase + i)), cells));
+            i++;
+        }
+
+        return rows;
     }
 }

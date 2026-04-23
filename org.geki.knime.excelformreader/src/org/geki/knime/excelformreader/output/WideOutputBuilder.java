@@ -2,23 +2,51 @@ package org.geki.knime.excelformreader.output;
 
 import java.util.Map;
 
+import org.geki.knime.excelformreader.domain.FieldMapping;
+import org.geki.knime.excelformreader.domain.FormDefinition;
 import org.knime.core.data.DataCell;
 import org.knime.core.data.DataRow;
 import org.knime.core.data.DataTableSpec;
+import org.knime.core.data.DataType;
+import org.knime.core.data.RowKey;
+import org.knime.core.data.def.DefaultRow;
+import org.knime.core.data.def.StringCell;
 
 public class WideOutputBuilder {
 
-    /**
-     * Builds a single wide-format DataRow from extracted field values.
-     *
-     * @param file   source file path string (used for provenance column)
-     * @param sheet  source sheet name (used for provenance column)
-     * @param values map from field name to DataCell as produced by ExcelFormExtractor
-     * @param spec   the DataTableSpec for the output table
-     */
-    public DataRow buildRow(final String file, final String sheet,
-                            final Map<String, DataCell> values, final DataTableSpec spec) {
-        // TODO: align values map to spec column order, append provenance cells if present
-        throw new UnsupportedOperationException("Not yet implemented");
+    private final DataTableSpec spec;
+    private final boolean includeProvenance;
+
+    public WideOutputBuilder(final DataTableSpec spec, final boolean includeProvenance) {
+        this.spec = spec;
+        this.includeProvenance = includeProvenance;
+    }
+
+    public DataRow buildRow(final String sourceFile,
+                             final String sheetName,
+                             final Map<String, DataCell> extractedValues,
+                             final FormDefinition definition,
+                             final long rowIndex) {
+        final DataCell[] cells = new DataCell[spec.getNumColumns()];
+        int i = 0;
+
+        if (includeProvenance) {
+            cells[i++] = new StringCell(sourceFile != null ? sourceFile : "");
+            cells[i++] = new StringCell(sheetName != null ? sheetName : "");
+        }
+
+        for (final FieldMapping mapping : definition.getFields()) {
+            final DataCell value = extractedValues != null
+                ? extractedValues.get(mapping.getFieldName())
+                : null;
+            cells[i++] = (value != null) ? value : DataType.getMissingCell();
+        }
+
+        // Fill any unexpected trailing slots defensively
+        while (i < cells.length) {
+            cells[i++] = DataType.getMissingCell();
+        }
+
+        return new DefaultRow(new RowKey("Row" + rowIndex), cells);
     }
 }
