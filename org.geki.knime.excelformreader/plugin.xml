@@ -1,11 +1,26 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <?eclipse version="3.4"?>
 <plugin>
+  <extension point="org.knime.workbench.repository.categories">
+    <category
+      path="/"
+      level-id="geki-research"
+      name="geki-research"
+      icon="icons/excelformreader.png"
+      after="org.knime.base"/>
+    <category
+      path="/geki-research"
+      level-id="io"
+      name="IO"
+      icon="icons/excelformreader.png"
+      after=""/>
+  </extension>
+
   <extension point="org.knime.workbench.repository.nodes">
     <node
       factory-class="org.geki.knime.excelformreader.ExcelFormReaderNodeFactory"
+      category-path="/geki-research/io"
       name="Excel Form Reader"
-      category-path="/io/read"
-      after="org.knime.base.node.io.filereader.FileReaderNodeFactory"/>
+      after=""/>
   </extension>
 </plugin>
