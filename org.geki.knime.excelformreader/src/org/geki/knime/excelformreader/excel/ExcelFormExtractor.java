@@ -82,7 +82,7 @@ public class ExcelFormExtractor {
         if (values.isEmpty()) {
             return DataType.getMissingCell();
         }
-        return new StringCell(String.join(settings.getRangeDelimiter(), values));
+        return new StringCell(String.join(", ", values)); // TODO: expose range delimiter in new settings
     }
 
     private DataCell handleMissingCell(final FieldMapping mapping, final Sheet sheet) {
@@ -94,7 +94,7 @@ public class ExcelFormExtractor {
         final String msg = "Cell not found for field '" + mapping.getFieldName()
             + "' at address '" + addrStr + "' in sheet '" + sheet.getSheetName() + "'";
 
-        if ("FAIL".equalsIgnoreCase(settings.getOnMissingCell())) {
+        if (settings.getOnMissingCell() == ExcelFormReaderSettings.ErrorHandling.FAIL) {
             throw new RuntimeException(msg);
         }
         LOGGER.warn(msg);

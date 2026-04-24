@@ -2,10 +2,12 @@ package org.geki.knime.excelformreader;
 
 import java.io.File;
 import java.nio.file.Paths;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
 import org.geki.knime.excelformreader.domain.FormDefinition;
+import org.geki.knime.excelformreader.domain.ReadingMode;
 import org.geki.knime.excelformreader.excel.ExcelFormExtractor;
 import org.geki.knime.excelformreader.excel.WorkbookIterator;
 import org.geki.knime.excelformreader.output.LongOutputBuilder;
@@ -44,17 +46,18 @@ public class ExcelFormReaderNodeModel extends NodeModel {
         if (inSpecs[0] == null) {
             throw new InvalidSettingsException("Form definition table is not connected");
         }
-        if (m_settings.getPath().trim().isEmpty()) {
+        // TODO: resolve path from InputMode setting
+        if (m_settings.getFilePath().trim().isEmpty() && m_settings.getFolderPath().trim().isEmpty()) {
             throw new InvalidSettingsException("No file or folder path configured");
         }
 
         final FormDefinition definition = FormDefinition.fromSpec(inSpecs[0]);
 
         final DataTableSpec spec;
-        if ("WIDE".equals(m_settings.getOutputFormat())) {
-            spec = OutputSpecFactory.createWideSpec(definition, m_settings.isAddProvenance());
+        if (m_settings.getOutputFormat() == ExcelFormReaderSettings.OutputFormat.WIDE) {
+            spec = OutputSpecFactory.createWideSpec(definition, m_settings.isIncludeSourceFilename());
         } else {
-            spec = OutputSpecFactory.createLongSpec(m_settings.isAddProvenance());
+            spec = OutputSpecFactory.createLongSpec(m_settings.isIncludeSourceFilename());
         }
 
         return new DataTableSpec[]{spec};
@@ -65,25 +68,32 @@ public class ExcelFormReaderNodeModel extends NodeModel {
                                            final ExecutionContext exec) throws Exception {
         final FormDefinition definition = FormDefinition.fromDataTable(inData[0]);
 
-        final boolean wide = "WIDE".equals(m_settings.getOutputFormat());
+        final boolean wide = m_settings.getOutputFormat() == ExcelFormReaderSettings.OutputFormat.WIDE;
         final DataTableSpec spec = wide
-            ? OutputSpecFactory.createWideSpec(definition, m_settings.isAddProvenance())
-            : OutputSpecFactory.createLongSpec(m_settings.isAddProvenance());
+            ? OutputSpecFactory.createWideSpec(definition, m_settings.isIncludeSourceFilename())
+            : OutputSpecFactory.createLongSpec(m_settings.isIncludeSourceFilename());
 
         final BufferedDataContainer container = exec.createDataContainer(spec);
 
         final WideOutputBuilder wideBuilder = wide
-            ? new WideOutputBuilder(spec, m_settings.isAddProvenance()) : null;
+            ? new WideOutputBuilder(spec, m_settings.isIncludeSourceFilename()) : null;
         final LongOutputBuilder longBuilder = !wide
-            ? new LongOutputBuilder(spec, m_settings.isAddProvenance()) : null;
+            ? new LongOutputBuilder(spec, m_settings.isIncludeSourceFilename()) : null;
 
         final ExcelFormExtractor extractor = new ExcelFormExtractor(m_settings);
 
+        // TODO: resolve path from InputMode setting
+        final String path = m_settings.getInputMode() == ExcelFormReaderSettings.InputMode.FOLDER
+            ? m_settings.getFolderPath() : m_settings.getFilePath();
+        // TODO: map InputMode to ReadingMode
+        final ReadingMode readingMode = m_settings.getInputMode() == ExcelFormReaderSettings.InputMode.FOLDER
+            ? ReadingMode.FOLDER : ReadingMode.SINGLE_FILE;
+
         long rowIndex = 0;
         try (WorkbookIterator iterator = new WorkbookIterator(
-                Paths.get(m_settings.getPath()),
-                m_settings.getReadingMode(),
-                m_settings.getExcludedSheets(),
+                Paths.get(path),
+                readingMode,
+                Collections.emptySet(), // TODO: implement sheet filter from new settings
                 m_settings.isRecursive())) {
 
             while (iterator.hasNext()) {

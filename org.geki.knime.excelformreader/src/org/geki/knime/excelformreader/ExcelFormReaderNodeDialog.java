@@ -16,7 +16,7 @@ public class ExcelFormReaderNodeDialog extends DefaultNodeSettingsPane {
         createNewGroup("File / Folder");
 
         addDialogComponent(new DialogComponentButtonGroup(
-            m_settings.getReadingModeModel(),
+            m_settings.getInputModeModel(),  // TODO: full dialog redesign pending
             "Reading mode",
             false,
             new String[]{"SINGLE_FILE", "FOLDER"},
@@ -24,7 +24,7 @@ public class ExcelFormReaderNodeDialog extends DefaultNodeSettingsPane {
         ));
 
         addDialogComponent(new DialogComponentFileChooser(
-            m_settings.getPathModel(),
+            m_settings.getFilePathModel(),   // TODO: full dialog redesign pending
             "excel_form_reader_path",
             ".xlsx"
         ));
@@ -40,16 +40,12 @@ public class ExcelFormReaderNodeDialog extends DefaultNodeSettingsPane {
         createNewGroup("Sheet");
 
         addDialogComponent(new DialogComponentString(
-            m_settings.getDefaultSheetModel(),
+            m_settings.getFileSheetNameModel(), // TODO: full dialog redesign pending
             "Default sheet name (leave blank for first sheet)",
             true, 30
         ));
 
-        addDialogComponent(new DialogComponentString(
-            m_settings.getExcludedSheetsModel(),
-            "Excluded sheet names (comma-separated)",
-            true, 30
-        ));
+        // TODO: sheet filter UI pending full dialog redesign
 
         closeCurrentGroup();
 
@@ -65,15 +61,11 @@ public class ExcelFormReaderNodeDialog extends DefaultNodeSettingsPane {
         ));
 
         addDialogComponent(new DialogComponentBoolean(
-            m_settings.getAddProvenanceModel(),
+            m_settings.getIncludeSourceFilenameModel(), // TODO: full dialog redesign pending
             "Add source file and sheet name columns"
         ));
 
-        addDialogComponent(new DialogComponentString(
-            m_settings.getRangeDelimiterModel(),
-            "Range cell delimiter",
-            true, 10
-        ));
+        // TODO: range delimiter UI pending full dialog redesign
 
         closeCurrentGroup();
 
