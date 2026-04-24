@@ -81,12 +81,32 @@ public class ExcelFormReaderNodeDialog extends NodeDialogPane {
     private final JTextField        m_fileSheetFilterNames     = new JTextField(30);
     private JPanel                  m_fileSheetFilterNamesPanel;
 
+    // ── Folder tab ────────────────────────────────────────────────────────────
+
+    private final JComboBox<String> m_folderReadFrom          = new JComboBox<>();
+    private final JTextField        m_folderPath              = new JTextField(30);
+    private final JButton           m_folderBrowse            = new JButton("Browse...");
+    private final JCheckBox         m_recursive               = new JCheckBox("Include subfolders");
+    private final JCheckBox         m_includeHiddenFolders    = new JCheckBox("Include hidden folders");
+
+    private final JCheckBox         m_filterByExtension       = new JCheckBox("Filter by file extension");
+    private final JTextField        m_fileExtensions          = new JTextField(20);
+    private JPanel                  m_extensionsPanel;
+    private final JCheckBox         m_includeHiddenFiles      = new JCheckBox("Include hidden files");
+
+    private final JCheckBox         m_folderIncludeHiddenSheets  = new JCheckBox("Include hidden worksheets");
+    private final JRadioButton      m_folderSheetFilterAll       = new JRadioButton("All");
+    private final JRadioButton      m_folderSheetFilterBlacklist = new JRadioButton("Blacklist");
+    private final JRadioButton      m_folderSheetFilterWhitelist = new JRadioButton("Whitelist");
+    private final JTextField        m_folderSheetFilterNames     = new JTextField(30);
+    private JPanel                  m_folderSheetFilterNamesPanel;
+
     // ─────────────────────────────────────────────────────────────────────────
 
     public ExcelFormReaderNodeDialog() {
         addTab("General", buildGeneralPanel());
         addTab("File",    buildFilePanel());
-        addTab("Folder",  new JPanel());
+        addTab("Folder",  buildFolderPanel());
     }
 
     // ── General tab ───────────────────────────────────────────────────────────
@@ -301,6 +321,96 @@ public class ExcelFormReaderNodeDialog extends NodeDialogPane {
         }
     }
 
+    // ── Folder tab ────────────────────────────────────────────────────────────
+
+    private JPanel buildFolderPanel() {
+        // ── Input Location group ──────────────────────────────────────────────
+        m_folderReadFrom.addItem("Local File System");
+
+        JPanel readFromRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
+        readFromRow.add(new JLabel("Read from:"));
+        readFromRow.add(m_folderReadFrom);
+
+        m_folderBrowse.addActionListener(e -> {
+            JFileChooser chooser = new JFileChooser();
+            chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+            if (chooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) {
+                m_folderPath.setText(chooser.getSelectedFile().getAbsolutePath());
+            }
+        });
+
+        JPanel folderPathRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
+        folderPathRow.add(new JLabel("Folder:"));
+        folderPathRow.add(m_folderPath);
+        folderPathRow.add(m_folderBrowse);
+
+        JPanel locationBox = createGroupBox("Input Location");
+        locationBox.add(readFromRow);
+        locationBox.add(folderPathRow);
+        locationBox.add(m_recursive);
+        locationBox.add(m_includeHiddenFolders);
+
+        // ── File Filter group ─────────────────────────────────────────────────
+        m_filterByExtension.setSelected(true);
+        m_fileExtensions.setText("xlsx");
+
+        m_extensionsPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
+        m_extensionsPanel.add(new JLabel("File extensions (comma-separated):"));
+        m_extensionsPanel.add(m_fileExtensions);
+
+        m_filterByExtension.addItemListener(
+            e -> m_extensionsPanel.setVisible(m_filterByExtension.isSelected()));
+
+        JPanel fileFilterBox = createGroupBox("File Filter");
+        fileFilterBox.add(m_filterByExtension);
+        fileFilterBox.add(m_extensionsPanel);
+        fileFilterBox.add(m_includeHiddenFiles);
+
+        // ── Select Sheet group ────────────────────────────────────────────────
+        ButtonGroup folderFilterModeGroup = new ButtonGroup();
+        folderFilterModeGroup.add(m_folderSheetFilterAll);
+        folderFilterModeGroup.add(m_folderSheetFilterBlacklist);
+        folderFilterModeGroup.add(m_folderSheetFilterWhitelist);
+        m_folderSheetFilterAll.setSelected(true);
+
+        JPanel folderFilterModeRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
+        folderFilterModeRow.add(new JLabel("Sheet filter:"));
+        folderFilterModeRow.add(m_folderSheetFilterAll);
+        folderFilterModeRow.add(m_folderSheetFilterBlacklist);
+        folderFilterModeRow.add(m_folderSheetFilterWhitelist);
+
+        m_folderSheetFilterNamesPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
+        m_folderSheetFilterNamesPanel.add(new JLabel("Sheet names (comma-separated):"));
+        m_folderSheetFilterNamesPanel.add(m_folderSheetFilterNames);
+        m_folderSheetFilterNamesPanel.setVisible(false);
+
+        m_folderSheetFilterAll.addItemListener(e -> updateFolderSheetFilterControls());
+        m_folderSheetFilterBlacklist.addItemListener(e -> updateFolderSheetFilterControls());
+        m_folderSheetFilterWhitelist.addItemListener(e -> updateFolderSheetFilterControls());
+
+        JPanel sheetBox = createGroupBox("Select Sheet");
+        sheetBox.add(m_folderIncludeHiddenSheets);
+        sheetBox.add(folderFilterModeRow);
+        sheetBox.add(m_folderSheetFilterNamesPanel);
+
+        // ── Assemble ──────────────────────────────────────────────────────────
+        JPanel content = new JPanel();
+        content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
+        content.add(locationBox);
+        content.add(fileFilterBox);
+        content.add(sheetBox);
+
+        JPanel root = new JPanel(new BorderLayout());
+        root.add(content, BorderLayout.NORTH);
+        return root;
+    }
+
+    private void updateFolderSheetFilterControls() {
+        boolean showNames = m_folderSheetFilterBlacklist.isSelected()
+            || m_folderSheetFilterWhitelist.isSelected();
+        m_folderSheetFilterNamesPanel.setVisible(showNames);
+    }
+
     // ── Tabbed pane helpers ───────────────────────────────────────────────────
 
     private void updateTabStates() {
@@ -374,6 +484,22 @@ public class ExcelFormReaderNodeDialog extends NodeDialogPane {
         m_settings.getFileSheetFilterNamesModel().setStringValue(
             m_fileSheetFilterNames.getText().trim());
 
+        // Folder tab
+        m_settings.getFolderPathModel().setStringValue(m_folderPath.getText().trim());
+        m_settings.getRecursiveModel().setBooleanValue(m_recursive.isSelected());
+        m_settings.getIncludeHiddenFoldersModel().setBooleanValue(m_includeHiddenFolders.isSelected());
+        m_settings.getFilterByExtensionModel().setBooleanValue(m_filterByExtension.isSelected());
+        m_settings.getFileExtensionsModel().setStringValue(m_fileExtensions.getText().trim());
+        m_settings.getIncludeHiddenFilesModel().setBooleanValue(m_includeHiddenFiles.isSelected());
+        m_settings.getFolderHiddenSheetsModel().setBooleanValue(m_folderIncludeHiddenSheets.isSelected());
+
+        String folderFilterMode = m_folderSheetFilterAll.isSelected() ? "ALL"
+            : m_folderSheetFilterBlacklist.isSelected() ? "BLACKLIST"
+            : "WHITELIST";
+        m_settings.getFolderSheetFilterModeModel().setStringValue(folderFilterMode);
+        m_settings.getFolderSheetFilterNamesModel().setStringValue(
+            m_folderSheetFilterNames.getText().trim());
+
         m_settings.saveSettings(settings);
     }
 
@@ -431,5 +557,24 @@ public class ExcelFormReaderNodeDialog extends NodeDialogPane {
 
         updateSheetControls();
         updateSheetFilterControls();
+
+        // Folder tab
+        m_folderPath.setText(m_settings.getFolderPath());
+        m_recursive.setSelected(m_settings.isRecursive());
+        m_includeHiddenFolders.setSelected(m_settings.isIncludeHiddenFolders());
+        m_filterByExtension.setSelected(m_settings.isFilterByExtension());
+        m_fileExtensions.setText(String.join(", ", m_settings.getFileExtensions()));
+        m_extensionsPanel.setVisible(m_settings.isFilterByExtension());
+        m_includeHiddenFiles.setSelected(m_settings.isIncludeHiddenFiles());
+        m_folderIncludeHiddenSheets.setSelected(m_settings.isFolderIncludeHiddenSheets());
+
+        SheetFilterMode ffm = m_settings.getFolderSheetFilterMode();
+        m_folderSheetFilterAll.setSelected(ffm == SheetFilterMode.ALL);
+        m_folderSheetFilterBlacklist.setSelected(ffm == SheetFilterMode.BLACKLIST);
+        m_folderSheetFilterWhitelist.setSelected(ffm == SheetFilterMode.WHITELIST);
+
+        m_folderSheetFilterNames.setText(String.join(", ", m_settings.getFolderSheetFilterNames()));
+
+        updateFolderSheetFilterControls();
     }
 }
