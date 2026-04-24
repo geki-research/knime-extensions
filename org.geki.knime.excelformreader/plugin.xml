@@ -4,6 +4,7 @@
   <extension point="org.knime.workbench.repository.nodes">
     <node
       factory-class="org.geki.knime.excelformreader.ExcelFormReaderNodeFactory"
+      name="Excel Form Reader"
       category-path="/io/read"
       after="org.knime.base.node.io.filereader.FileReaderNodeFactory"/>
   </extension>
