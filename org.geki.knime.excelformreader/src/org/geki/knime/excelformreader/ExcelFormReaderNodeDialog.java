@@ -79,6 +79,7 @@ public class ExcelFormReaderNodeDialog extends NodeDialogPane {
     private final JSpinner          m_fileSheetPosition   =
         new JSpinner(new SpinnerNumberModel(0, 0, 999, 1));
     private final JCheckBox         m_fileSingleHiddenSheets = new JCheckBox("Include hidden worksheets");
+    private final JSeparator        m_fileSingleSeparator    = new JSeparator(SwingConstants.HORIZONTAL);
 
     private final JCheckBox    m_fileManyHiddenSheets     = new JCheckBox("Include hidden worksheets");
     private final JRadioButton m_fileSheetFilterAll       = new JRadioButton("All");
@@ -95,7 +96,7 @@ public class ExcelFormReaderNodeDialog extends NodeDialogPane {
     private final JCheckBox         m_recursive            = new JCheckBox("Include subfolders");
     private final JCheckBox         m_includeHiddenFolders = new JCheckBox("Include hidden folders");
 
-    private final JCheckBox    m_filterByExtension = new JCheckBox("Filter by file extension");
+    private final JRadioButton m_filterByExtension = new JRadioButton("Filter by file extension");
     private final JTextField   m_fileExtensions    = new JTextField(20);
     private JPanel             m_extensionsPanel;
     private final JCheckBox    m_includeHiddenFiles = new JCheckBox("Include hidden files");
@@ -247,15 +248,6 @@ public class ExcelFormReaderNodeDialog extends NodeDialogPane {
         m_fileSingleSheetPanel.add(new JLabel("Position starts with 0."), gbc(2, 2, 1, false));
         m_fileSingleSheetPanel.add(new JPanel(),                       gbc(3, 2, 1, true));
 
-        // Row 3: separator
-        JSeparator sep = new JSeparator(SwingConstants.HORIZONTAL);
-        GridBagConstraints sepGbc = gbc(0, 3, 4, true);
-        sepGbc.insets = new Insets(6, 4, 6, 4);
-        m_fileSingleSheetPanel.add(sep, sepGbc);
-
-        // Row 4: hidden sheets checkbox
-        m_fileSingleSheetPanel.add(m_fileSingleHiddenSheets, gbc(0, 4, 4, false));
-
         // ── Section B: many sheets panel (GridBagLayout) ──────────────────────
         ButtonGroup filterModeGroup = new ButtonGroup();
         filterModeGroup.add(m_fileSheetFilterAll);
@@ -296,12 +288,16 @@ public class ExcelFormReaderNodeDialog extends NodeDialogPane {
         m_fileManySheetPanel.add(m_fileSheetFilterNamesPanel, gbc(0, 3, 5, true));
 
         // ── Assemble Select Sheet group box ───────────────────────────────────
-        JPanel sheetBox = createGroupBox("Select Sheet");
-        sheetBox.add(m_fileSingleSheetRadio, gbc(0, 0, 1, false));
-        sheetBox.add(new JPanel(),           gbc(1, 0, 1, true));   // stretch filler
-        sheetBox.add(m_fileManySheetRadio,   gbc(0, 1, 1, false));
-        sheetBox.add(m_fileSingleSheetPanel, gbc(0, 2, 2, true));   // section A
-        sheetBox.add(m_fileManySheetPanel,   gbc(0, 3, 2, true));   // section B
+        JPanel sheetBox = createGroupBox("Select Sheet(s) to be processed");
+        sheetBox.add(m_fileSingleSheetRadio,   gbc(0, 0, 1, false));
+        sheetBox.add(new JPanel(),             gbc(1, 0, 1, true));   // stretch filler
+        sheetBox.add(m_fileManySheetRadio,     gbc(0, 1, 1, false));
+        sheetBox.add(m_fileSingleHiddenSheets, gbc(0, 2, 2, false));  // visible only in single mode
+        GridBagConstraints sepSingleGbc = gbc(0, 3, 2, true);
+        sepSingleGbc.insets = new Insets(6, 4, 6, 4);
+        sheetBox.add(m_fileSingleSeparator,    sepSingleGbc);          // visible only in single mode
+        sheetBox.add(m_fileSingleSheetPanel,   gbc(0, 4, 2, true));   // section A
+        sheetBox.add(m_fileManySheetPanel,     gbc(0, 4, 2, true));   // section B (same row, only one visible)
 
         updateSheetControls();
 
@@ -328,6 +324,8 @@ public class ExcelFormReaderNodeDialog extends NodeDialogPane {
 
     private void updateSheetModeControls() {
         boolean single = m_fileSingleSheetRadio.isSelected();
+        m_fileSingleHiddenSheets.setVisible(single);
+        m_fileSingleSeparator.setVisible(single);
         m_fileSingleSheetPanel.setVisible(single);
         m_fileManySheetPanel.setVisible(!single);
     }
@@ -395,6 +393,15 @@ public class ExcelFormReaderNodeDialog extends NodeDialogPane {
             }
         });
 
+        m_includeHiddenFolders.setEnabled(false);
+        m_recursive.addItemListener(e -> {
+            boolean recursive = m_recursive.isSelected();
+            m_includeHiddenFolders.setEnabled(recursive);
+            if (!recursive) {
+                m_includeHiddenFolders.setSelected(false);
+            }
+        });
+
         JPanel locationBox = createGroupBox("Input Location");
         locationBox.add(new JLabel("Read from:"), gbc(0, 0, 1, false));
         locationBox.add(m_folderReadFrom,          gbc(1, 0, 1, false));
@@ -406,6 +413,8 @@ public class ExcelFormReaderNodeDialog extends NodeDialogPane {
         locationBox.add(m_includeHiddenFolders,    gbc(0, 3, 3, false));
 
         // ── File Filter group box ─────────────────────────────────────────────
+        ButtonGroup fileFilterModeGroup = new ButtonGroup();
+        fileFilterModeGroup.add(m_filterByExtension);
         m_filterByExtension.setSelected(true);
         m_fileExtensions.setText("xlsx");
 
@@ -418,10 +427,15 @@ public class ExcelFormReaderNodeDialog extends NodeDialogPane {
         m_filterByExtension.addItemListener(
             e -> m_extensionsPanel.setVisible(m_filterByExtension.isSelected()));
 
+        JSeparator fileFilterSep = new JSeparator(SwingConstants.HORIZONTAL);
+        GridBagConstraints fileFilterSepGbc = gbc(0, 1, 3, true);
+        fileFilterSepGbc.insets = new Insets(6, 4, 6, 4);
+
         JPanel fileFilterBox = createGroupBox("File Filter");
         fileFilterBox.add(m_filterByExtension, gbc(0, 0, 3, false));
-        fileFilterBox.add(m_extensionsPanel,   gbc(0, 1, 3, true));
-        fileFilterBox.add(m_includeHiddenFiles, gbc(0, 2, 3, false));
+        fileFilterBox.add(fileFilterSep,        fileFilterSepGbc);
+        fileFilterBox.add(m_extensionsPanel,   gbc(0, 2, 3, true));
+        fileFilterBox.add(m_includeHiddenFiles, gbc(0, 3, 3, false));
 
         // ── Select Sheet group box ────────────────────────────────────────────
         ButtonGroup folderFilterModeGroup = new ButtonGroup();
@@ -649,6 +663,7 @@ public class ExcelFormReaderNodeDialog extends NodeDialogPane {
         // Folder tab
         m_folderPath.setText(m_settings.getFolderPath());
         m_recursive.setSelected(m_settings.isRecursive());
+        m_includeHiddenFolders.setEnabled(m_settings.isRecursive());
         m_includeHiddenFolders.setSelected(m_settings.isIncludeHiddenFolders());
         m_filterByExtension.setSelected(m_settings.isFilterByExtension());
         m_fileExtensions.setText(String.join(", ", m_settings.getFileExtensions()));
