@@ -107,7 +107,6 @@ the node generic and reusable across any form layout.
 | `field_name` | ✅ | String | Output column name |
 | `value_cell` | ✅ | String | Cell address (`C4`) or range (`B10:D15`) |
 | `data_type` | ❌ | String | `string`/`int`/`double`/`date`/`boolean` — defaults to `string` |
-| `sheet_name` | ❌ | String | Per-field sheet override |
 
 ### Reading modes
 | Mode | Description |

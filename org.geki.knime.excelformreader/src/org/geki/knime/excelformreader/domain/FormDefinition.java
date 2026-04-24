@@ -64,7 +64,6 @@ public class FormDefinition {
                 "Form definition table is missing required column 'value_cell'");
         }
         final int dataTypeIdx = findColumnIndex(spec, "data_type");
-        final int sheetNameIdx = findColumnIndex(spec, "sheet_name");
 
         final List<FieldMapping> mappings = new ArrayList<>();
         for (final DataRow row : table) {
@@ -80,11 +79,9 @@ public class FormDefinition {
             final String valueCell = valueCellCell.toString();
             final String dataType = (dataTypeIdx >= 0 && !row.getCell(dataTypeIdx).isMissing())
                 ? row.getCell(dataTypeIdx).toString() : null;
-            final String sheetName = (sheetNameIdx >= 0 && !row.getCell(sheetNameIdx).isMissing())
-                ? row.getCell(sheetNameIdx).toString() : null;
 
             try {
-                mappings.add(new FieldMapping(fieldName, valueCell, dataType, sheetName));
+                mappings.add(new FieldMapping(fieldName, valueCell, dataType));
             } catch (final IllegalArgumentException e) {
                 LOGGER.warn("Skipping row " + row.getKey() + ": " + e.getMessage());
             }
