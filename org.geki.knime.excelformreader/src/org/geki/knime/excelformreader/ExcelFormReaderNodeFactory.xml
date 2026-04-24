@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<knimeNode
+    xmlns="http://knime.org/node/v2.12"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://knime.org/node/v2.12
+      http://knime.org/node/v2.12.xsd"
+    icon="./excelformreader.png"
+    type="Source">
+
+  <name>Excel Form Reader</name>
+
+  <shortDescription>
+    Reads non-tabular, form-structured Excel worksheets into a
+    KNIME data table using a configurable field mapping definition.
+  </shortDescription>
+
+  <fullDescription>
+    <intro>
+      Reads one or more .xlsx files containing form-structured
+      (non-tabular) worksheets and extracts field values into a
+      standard KNIME data table. The form structure is defined
+      by a connected input table that maps field names to Excel
+      cell addresses (e.g. C4, B10:D15). Each worksheet produces
+      one output row in wide mode, or one row per field in long mode.
+      Supports single file, all sheets in a workbook, folder, and
+      recursive folder reading modes.
+    </intro>
+
+    <option name="Reading Mode">
+      Select Single File to read from one .xlsx file, or Folder
+      to read all .xlsx files in a directory.
+    </option>
+
+    <option name="File / Folder Path">
+      The path to the .xlsx file or the folder containing .xlsx files
+      to be read.
+    </option>
+
+    <option name="Include Subfolders">
+      When reading in Folder mode, also scan all subfolders
+      recursively for .xlsx files.
+    </option>
+
+    <option name="Default Sheet Name">
+      The name of the worksheet to read from each workbook. Leave
+      blank to read the first sheet. Can be overridden per field
+      in the form definition table via the sheet_name column.
+    </option>
+
+    <option name="Excluded Sheet Names">
+      Comma-separated list of worksheet names to skip when reading
+      all sheets from a workbook. Default: Config.
+    </option>
+
+    <option name="Output Format">
+      Wide: produces one row per form instance (file/sheet pair),
+      with one column per field defined in the mapping table.
+      Long: produces one row per field per form instance, with
+      fixed columns field_name and value.
+    </option>
+
+    <option name="Add Source File and Sheet Name Columns">
+      When enabled, adds _source_file and _sheet_name as the first
+      two columns in the output table, identifying the origin of
+      each row.
+    </option>
+
+    <option name="Range Cell Delimiter">
+      When a value_cell address specifies a range (e.g. B10:D15),
+      all cell values in the range are concatenated using this
+      delimiter string.
+    </option>
+
+    <option name="On Missing Cell">
+      Warn and set missing value: if a cell address cannot be
+      resolved, a missing value is written and a warning is logged.
+      Fail: the node fails immediately on the first unresolvable cell.
+    </option>
+
+    <option name="On Unparseable Value">
+      Warn and set missing value: if a cell value cannot be converted
+      to the declared data type, a missing value is written and a
+      warning is logged.
+      Fail: the node fails immediately on the first conversion error.
+    </option>
+  </fullDescription>
+
+  <ports>
+    <inPort index="0" name="Form Definition">
+      A table defining the form structure. Required columns:
+      field_name (String) and value_cell (String).
+      Optional columns: data_type (String) and sheet_name (String).
+      Supported data_type values: string, int, double, date, boolean.
+    </inPort>
+    <outPort index="0" name="Extracted Data">
+      The extracted form data as a flat KNIME table.
+      In wide mode: one row per (file, sheet) pair.
+      In long mode: one row per (file, sheet, field) triple.
+    </outPort>
+  </ports>
+
+</knimeNode>
