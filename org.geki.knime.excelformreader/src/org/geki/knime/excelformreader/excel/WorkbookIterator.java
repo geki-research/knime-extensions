@@ -44,6 +44,7 @@ public class WorkbookIterator implements Iterator<WorkbookIterator.Entry>, Close
 
     private final List<Path>      files;
     private final ReadingMode     mode;
+    private final boolean         processManySheets;
     private final SheetSelection  sheetSelection;
     private final String          sheetName;
     private final int             sheetPosition;
@@ -62,6 +63,7 @@ public class WorkbookIterator implements Iterator<WorkbookIterator.Entry>, Close
 
     public WorkbookIterator(final Path rootPath,
                              final ReadingMode mode,
+                             final boolean processManySheets,
                              final SheetSelection sheetSelection,
                              final String sheetName,
                              final int sheetPosition,
@@ -74,6 +76,7 @@ public class WorkbookIterator implements Iterator<WorkbookIterator.Entry>, Close
                              final boolean filterByExtension,
                              final Set<String> fileExtensions) throws IOException {
         this.mode               = mode;
+        this.processManySheets  = processManySheets;
         this.sheetSelection     = (sheetSelection != null) ? sheetSelection : SheetSelection.FIRST;
         this.sheetName          = (sheetName != null) ? sheetName : "";
         this.sheetPosition      = sheetPosition;
@@ -172,7 +175,8 @@ public class WorkbookIterator implements Iterator<WorkbookIterator.Entry>, Close
     }
 
     private void computePendingSheets() {
-        if (mode == ReadingMode.SINGLE_FILE) {
+        if (!processManySheets) {
+            // Intent A: select exactly one sheet by SheetSelection
             switch (sheetSelection) {
                 case FIRST:
                     for (int i = 0; i < currentWorkbook.getNumberOfSheets(); i++) {
@@ -218,7 +222,8 @@ public class WorkbookIterator implements Iterator<WorkbookIterator.Entry>, Close
                     break;
             }
         } else {
-            // FOLDER mode: yield all sheets that pass the filter
+            // Intent B: yield all sheets that pass shouldIncludeSheet()
+            // (used for FOLDER mode and SINGLE_FILE "process many sheets")
             for (int i = 0; i < currentWorkbook.getNumberOfSheets(); i++) {
                 final Sheet s = currentWorkbook.getSheetAt(i);
                 if (shouldIncludeSheet(s, currentWorkbook)) {

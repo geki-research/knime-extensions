@@ -61,45 +61,54 @@ public class ExcelFormReaderNodeDialog extends NodeDialogPane {
 
     // ── File tab ──────────────────────────────────────────────────────────────
 
-    private final JComboBox<String> m_fileReadFrom   = new JComboBox<>();
-    private final JTextField        m_filePath       = new JTextField(30);
-    private final JButton           m_fileBrowse     = new JButton("Browse...");
+    private final JComboBox<String> m_fileReadFrom = new JComboBox<>();
+    private final JTextField        m_filePath     = new JTextField(30);
+    private final JButton           m_fileBrowse   = new JButton("Browse...");
 
-    private final JRadioButton      m_fileFirstRadio       = new JRadioButton("First");
-    private final JRadioButton      m_fileByNameRadio      = new JRadioButton("By name");
-    private final JRadioButton      m_fileByPositionRadio  = new JRadioButton("By position");
-    private final JLabel            m_fileFirstSheetName   = new JLabel("(no file selected)");
-    private final JComboBox<String> m_fileSheetNameCombo   = new JComboBox<>();
-    private final JSpinner          m_fileSheetPosition    =
+    // Sheet mode (top-level toggle)
+    private final JRadioButton m_fileSingleSheetRadio = new JRadioButton("Process single sheet");
+    private final JRadioButton m_fileManySheetRadio   = new JRadioButton("Process many sheets");
+    private JPanel             m_fileSingleSheetPanel;
+    private JPanel             m_fileManySheetPanel;
+
+    // Section A — single sheet controls
+    private final JRadioButton      m_fileFirstRadio      = new JRadioButton("First");
+    private final JRadioButton      m_fileByNameRadio     = new JRadioButton("By name");
+    private final JRadioButton      m_fileByPositionRadio = new JRadioButton("By position");
+    private final JLabel            m_fileFirstSheetName  = new JLabel("(no file selected)");
+    private final JComboBox<String> m_fileSheetNameCombo  = new JComboBox<>();
+    private final JSpinner          m_fileSheetPosition   =
         new JSpinner(new SpinnerNumberModel(0, 0, 999, 1));
     private JPanel                  m_fileByPositionPanel;
+    private final JCheckBox         m_fileSingleHiddenSheets = new JCheckBox("Include hidden worksheets");
 
-    private final JCheckBox         m_fileIncludeHiddenSheets  = new JCheckBox("Include hidden worksheets");
-    private final JRadioButton      m_fileSheetFilterAll       = new JRadioButton("All");
-    private final JRadioButton      m_fileSheetFilterBlacklist = new JRadioButton("Blacklist");
-    private final JRadioButton      m_fileSheetFilterWhitelist = new JRadioButton("Whitelist");
-    private final JTextField        m_fileSheetFilterNames     = new JTextField(30);
-    private JPanel                  m_fileSheetFilterNamesPanel;
+    // Section B — many sheets controls
+    private final JCheckBox    m_fileManyHiddenSheets     = new JCheckBox("Include hidden worksheets");
+    private final JRadioButton m_fileSheetFilterAll       = new JRadioButton("All");
+    private final JRadioButton m_fileSheetFilterBlacklist = new JRadioButton("Blacklist");
+    private final JRadioButton m_fileSheetFilterWhitelist = new JRadioButton("Whitelist");
+    private final JTextField   m_fileSheetFilterNames     = new JTextField(30);
+    private JPanel             m_fileSheetFilterNamesPanel;
 
     // ── Folder tab ────────────────────────────────────────────────────────────
 
-    private final JComboBox<String> m_folderReadFrom          = new JComboBox<>();
-    private final JTextField        m_folderPath              = new JTextField(30);
-    private final JButton           m_folderBrowse            = new JButton("Browse...");
-    private final JCheckBox         m_recursive               = new JCheckBox("Include subfolders");
-    private final JCheckBox         m_includeHiddenFolders    = new JCheckBox("Include hidden folders");
+    private final JComboBox<String> m_folderReadFrom       = new JComboBox<>();
+    private final JTextField        m_folderPath           = new JTextField(30);
+    private final JButton           m_folderBrowse         = new JButton("Browse...");
+    private final JCheckBox         m_recursive            = new JCheckBox("Include subfolders");
+    private final JCheckBox         m_includeHiddenFolders = new JCheckBox("Include hidden folders");
 
-    private final JCheckBox         m_filterByExtension       = new JCheckBox("Filter by file extension");
-    private final JTextField        m_fileExtensions          = new JTextField(20);
-    private JPanel                  m_extensionsPanel;
-    private final JCheckBox         m_includeHiddenFiles      = new JCheckBox("Include hidden files");
+    private final JCheckBox    m_filterByExtension = new JCheckBox("Filter by file extension");
+    private final JTextField   m_fileExtensions    = new JTextField(20);
+    private JPanel             m_extensionsPanel;
+    private final JCheckBox    m_includeHiddenFiles = new JCheckBox("Include hidden files");
 
-    private final JCheckBox         m_folderIncludeHiddenSheets  = new JCheckBox("Include hidden worksheets");
-    private final JRadioButton      m_folderSheetFilterAll       = new JRadioButton("All");
-    private final JRadioButton      m_folderSheetFilterBlacklist = new JRadioButton("Blacklist");
-    private final JRadioButton      m_folderSheetFilterWhitelist = new JRadioButton("Whitelist");
-    private final JTextField        m_folderSheetFilterNames     = new JTextField(30);
-    private JPanel                  m_folderSheetFilterNamesPanel;
+    private final JCheckBox    m_folderIncludeHiddenSheets  = new JCheckBox("Include hidden worksheets");
+    private final JRadioButton m_folderSheetFilterAll       = new JRadioButton("All");
+    private final JRadioButton m_folderSheetFilterBlacklist = new JRadioButton("Blacklist");
+    private final JRadioButton m_folderSheetFilterWhitelist = new JRadioButton("Whitelist");
+    private final JTextField   m_folderSheetFilterNames     = new JTextField(30);
+    private JPanel             m_folderSheetFilterNamesPanel;
 
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -202,7 +211,14 @@ public class ExcelFormReaderNodeDialog extends NodeDialogPane {
         locationBox.add(readFromRow);
         locationBox.add(filePathRow);
 
-        // ── Select Sheet group — Part A: sheet selection ──────────────────────
+        // ── Select Sheet group — top-level mode toggle ────────────────────────
+        ButtonGroup sheetsModeGroup = new ButtonGroup();
+        sheetsModeGroup.add(m_fileSingleSheetRadio);
+        sheetsModeGroup.add(m_fileManySheetRadio);
+        m_fileSingleSheetRadio.setSelected(true);
+        m_fileSingleSheetRadio.addItemListener(e -> updateSheetModeControls());
+
+        // ── Section A: single sheet panel ─────────────────────────────────────
         ButtonGroup sheetSelGroup = new ButtonGroup();
         sheetSelGroup.add(m_fileFirstRadio);
         sheetSelGroup.add(m_fileByNameRadio);
@@ -228,14 +244,22 @@ public class ExcelFormReaderNodeDialog extends NodeDialogPane {
         m_fileByNameRadio.addItemListener(e -> updateSheetControls());
         m_fileByPositionRadio.addItemListener(e -> updateSheetControls());
 
-        // ── Select Sheet group — Part B: sheet filter ─────────────────────────
-        JPanel separatorPanel = new JPanel(new BorderLayout());
-        separatorPanel.setBorder(BorderFactory.createEmptyBorder(4, 0, 4, 0));
-        separatorPanel.add(new JSeparator(SwingConstants.HORIZONTAL), BorderLayout.CENTER);
+        JPanel singleSepPanel = new JPanel(new BorderLayout());
+        singleSepPanel.setBorder(BorderFactory.createEmptyBorder(4, 0, 4, 0));
+        singleSepPanel.add(new JSeparator(SwingConstants.HORIZONTAL), BorderLayout.CENTER);
 
-        JPanel hiddenSheetsRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
-        hiddenSheetsRow.add(m_fileIncludeHiddenSheets);
+        m_fileSingleSheetPanel = new JPanel();
+        m_fileSingleSheetPanel.setLayout(new BoxLayout(m_fileSingleSheetPanel, BoxLayout.Y_AXIS));
+        m_fileSingleSheetPanel.add(m_fileFirstRadio);
+        m_fileSingleSheetPanel.add(firstNamePanel);
+        m_fileSingleSheetPanel.add(m_fileByNameRadio);
+        m_fileSingleSheetPanel.add(byNamePanel);
+        m_fileSingleSheetPanel.add(m_fileByPositionRadio);
+        m_fileSingleSheetPanel.add(m_fileByPositionPanel);
+        m_fileSingleSheetPanel.add(singleSepPanel);
+        m_fileSingleSheetPanel.add(m_fileSingleHiddenSheets);
 
+        // ── Section B: many sheets panel ──────────────────────────────────────
         ButtonGroup filterModeGroup = new ButtonGroup();
         filterModeGroup.add(m_fileSheetFilterAll);
         filterModeGroup.add(m_fileSheetFilterBlacklist);
@@ -257,18 +281,19 @@ public class ExcelFormReaderNodeDialog extends NodeDialogPane {
         m_fileSheetFilterBlacklist.addItemListener(e -> updateSheetFilterControls());
         m_fileSheetFilterWhitelist.addItemListener(e -> updateSheetFilterControls());
 
+        m_fileManySheetPanel = new JPanel();
+        m_fileManySheetPanel.setLayout(new BoxLayout(m_fileManySheetPanel, BoxLayout.Y_AXIS));
+        m_fileManySheetPanel.setVisible(false);
+        m_fileManySheetPanel.add(m_fileManyHiddenSheets);
+        m_fileManySheetPanel.add(filterModeRow);
+        m_fileManySheetPanel.add(m_fileSheetFilterNamesPanel);
+
         // ── Assemble Select Sheet group ───────────────────────────────────────
         JPanel sheetBox = createGroupBox("Select Sheet");
-        sheetBox.add(m_fileFirstRadio);
-        sheetBox.add(firstNamePanel);
-        sheetBox.add(m_fileByNameRadio);
-        sheetBox.add(byNamePanel);
-        sheetBox.add(m_fileByPositionRadio);
-        sheetBox.add(m_fileByPositionPanel);
-        sheetBox.add(separatorPanel);
-        sheetBox.add(hiddenSheetsRow);
-        sheetBox.add(filterModeRow);
-        sheetBox.add(m_fileSheetFilterNamesPanel);
+        sheetBox.add(m_fileSingleSheetRadio);
+        sheetBox.add(m_fileManySheetRadio);
+        sheetBox.add(m_fileSingleSheetPanel);
+        sheetBox.add(m_fileManySheetPanel);
 
         updateSheetControls();
 
@@ -280,6 +305,12 @@ public class ExcelFormReaderNodeDialog extends NodeDialogPane {
         JPanel root = new JPanel(new BorderLayout());
         root.add(content, BorderLayout.NORTH);
         return root;
+    }
+
+    private void updateSheetModeControls() {
+        boolean single = m_fileSingleSheetRadio.isSelected();
+        m_fileSingleSheetPanel.setVisible(single);
+        m_fileManySheetPanel.setVisible(!single);
     }
 
     private void updateSheetControls() {
@@ -324,7 +355,6 @@ public class ExcelFormReaderNodeDialog extends NodeDialogPane {
     // ── Folder tab ────────────────────────────────────────────────────────────
 
     private JPanel buildFolderPanel() {
-        // ── Input Location group ──────────────────────────────────────────────
         m_folderReadFrom.addItem("Local File System");
 
         JPanel readFromRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
@@ -350,7 +380,6 @@ public class ExcelFormReaderNodeDialog extends NodeDialogPane {
         locationBox.add(m_recursive);
         locationBox.add(m_includeHiddenFolders);
 
-        // ── File Filter group ─────────────────────────────────────────────────
         m_filterByExtension.setSelected(true);
         m_fileExtensions.setText("xlsx");
 
@@ -366,7 +395,6 @@ public class ExcelFormReaderNodeDialog extends NodeDialogPane {
         fileFilterBox.add(m_extensionsPanel);
         fileFilterBox.add(m_includeHiddenFiles);
 
-        // ── Select Sheet group ────────────────────────────────────────────────
         ButtonGroup folderFilterModeGroup = new ButtonGroup();
         folderFilterModeGroup.add(m_folderSheetFilterAll);
         folderFilterModeGroup.add(m_folderSheetFilterBlacklist);
@@ -393,7 +421,6 @@ public class ExcelFormReaderNodeDialog extends NodeDialogPane {
         sheetBox.add(folderFilterModeRow);
         sheetBox.add(m_folderSheetFilterNamesPanel);
 
-        // ── Assemble ──────────────────────────────────────────────────────────
         JPanel content = new JPanel();
         content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
         content.add(locationBox);
@@ -474,8 +501,12 @@ public class ExcelFormReaderNodeDialog extends NodeDialogPane {
             ? (String) m_fileSheetNameCombo.getSelectedItem() : "");
         m_settings.getFileSheetPositionModel().setIntValue(
             (Integer) m_fileSheetPosition.getValue());
+        m_settings.getFileManySheeetsModel().setBooleanValue(
+            m_fileManySheetRadio.isSelected());
+        m_settings.getFileSingleHiddenSheetsModel().setBooleanValue(
+            m_fileSingleHiddenSheets.isSelected());
         m_settings.getFileHiddenSheetsModel().setBooleanValue(
-            m_fileIncludeHiddenSheets.isSelected());
+            m_fileManyHiddenSheets.isSelected());
 
         String filterMode = m_fileSheetFilterAll.isSelected() ? "ALL"
             : m_fileSheetFilterBlacklist.isSelected() ? "BLACKLIST"
@@ -546,7 +577,12 @@ public class ExcelFormReaderNodeDialog extends NodeDialogPane {
         }
 
         m_fileSheetPosition.setValue(m_settings.getFileSheetPosition());
-        m_fileIncludeHiddenSheets.setSelected(m_settings.isFileIncludeHiddenSheets());
+
+        boolean manySheets = m_settings.getFileManySheets();
+        m_fileSingleSheetRadio.setSelected(!manySheets);
+        m_fileManySheetRadio.setSelected(manySheets);
+        m_fileSingleHiddenSheets.setSelected(m_settings.isFileSingleIncludeHiddenSheets());
+        m_fileManyHiddenSheets.setSelected(m_settings.isFileIncludeHiddenSheets());
 
         SheetFilterMode fm = m_settings.getFileSheetFilterMode();
         m_fileSheetFilterAll.setSelected(fm == SheetFilterMode.ALL);
@@ -557,6 +593,7 @@ public class ExcelFormReaderNodeDialog extends NodeDialogPane {
 
         updateSheetControls();
         updateSheetFilterControls();
+        updateSheetModeControls();
 
         // Folder tab
         m_folderPath.setText(m_settings.getFolderPath());

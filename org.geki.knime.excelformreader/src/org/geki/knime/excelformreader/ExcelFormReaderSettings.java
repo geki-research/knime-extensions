@@ -35,8 +35,10 @@ public class ExcelFormReaderSettings {
     private static final String CFG_OUTPUT_FORMAT             = "cfg_outputFormat";
     private static final String CFG_INCLUDE_SOURCE_FILENAME   = "cfg_includeSourceFilename";
     private static final String CFG_INCLUDE_SHEET_NAME        = "cfg_includeSheetName";
-    private static final String CFG_ON_MISSING_CELL           = "cfg_onMissingCell";
-    private static final String CFG_ON_BAD_VALUE              = "cfg_onBadValue";
+    private static final String CFG_ON_MISSING_CELL              = "cfg_onMissingCell";
+    private static final String CFG_ON_BAD_VALUE                = "cfg_onBadValue";
+    private static final String CFG_FILE_MANY_SHEETS            = "cfg_fileManySheets";
+    private static final String CFG_FILE_SINGLE_HIDDEN_SHEETS   = "cfg_fileSingleHiddenSheets";
 
     // ── Enums ────────────────────────────────────────────────────────────────
 
@@ -141,6 +143,8 @@ public class ExcelFormReaderSettings {
     private final SettingsModelBoolean m_includeSheetName       = new SettingsModelBoolean(CFG_INCLUDE_SHEET_NAME, true);
     private final SettingsModelString  m_onMissingCell          = new SettingsModelString(CFG_ON_MISSING_CELL, "WARN");
     private final SettingsModelString  m_onBadValue             = new SettingsModelString(CFG_ON_BAD_VALUE, "WARN");
+    private final SettingsModelBoolean m_fileManySheets         = new SettingsModelBoolean(CFG_FILE_MANY_SHEETS, false);
+    private final SettingsModelBoolean m_fileSingleHiddenSheets = new SettingsModelBoolean(CFG_FILE_SINGLE_HIDDEN_SHEETS, false);
 
     // ── Typed getters ────────────────────────────────────────────────────────
 
@@ -208,6 +212,9 @@ public class ExcelFormReaderSettings {
         return ErrorHandling.fromString(m_onBadValue.getStringValue());
     }
 
+    public boolean getFileManySheets() { return m_fileManySheets.getBooleanValue(); }
+    public boolean isFileSingleIncludeHiddenSheets() { return m_fileSingleHiddenSheets.getBooleanValue(); }
+
     // ── Raw model getters ─────────────────────────────────────────────────────
 
     public SettingsModelString  getInputModeModel()              { return m_inputMode; }
@@ -230,8 +237,10 @@ public class ExcelFormReaderSettings {
     public SettingsModelString  getOutputFormatModel()           { return m_outputFormat; }
     public SettingsModelBoolean getIncludeSourceFilenameModel()  { return m_includeSourceFilename; }
     public SettingsModelBoolean getIncludeSheetNameModel()       { return m_includeSheetName; }
-    public SettingsModelString  getOnMissingCellModel()          { return m_onMissingCell; }
-    public SettingsModelString  getOnBadValueModel()             { return m_onBadValue; }
+    public SettingsModelString  getOnMissingCellModel()            { return m_onMissingCell; }
+    public SettingsModelString  getOnBadValueModel()               { return m_onBadValue; }
+    public SettingsModelBoolean getFileManySheeetsModel()          { return m_fileManySheets; }
+    public SettingsModelBoolean getFileSingleHiddenSheetsModel()   { return m_fileSingleHiddenSheets; }
 
     // ── Persistence ───────────────────────────────────────────────────────────
 
@@ -258,6 +267,8 @@ public class ExcelFormReaderSettings {
         m_includeSheetName.saveSettingsTo(settings);
         m_onMissingCell.saveSettingsTo(settings);
         m_onBadValue.saveSettingsTo(settings);
+        m_fileManySheets.saveSettingsTo(settings);
+        m_fileSingleHiddenSheets.saveSettingsTo(settings);
     }
 
     public void loadSettings(final NodeSettingsRO settings) throws InvalidSettingsException {
@@ -283,6 +294,8 @@ public class ExcelFormReaderSettings {
         m_includeSheetName.loadSettingsFrom(settings);
         m_onMissingCell.loadSettingsFrom(settings);
         m_onBadValue.loadSettingsFrom(settings);
+        m_fileManySheets.loadSettingsFrom(settings);
+        m_fileSingleHiddenSheets.loadSettingsFrom(settings);
     }
 
     public void validateSettings(final NodeSettingsRO settings) throws InvalidSettingsException {
@@ -308,6 +321,8 @@ public class ExcelFormReaderSettings {
         m_includeSheetName.validateSettings(settings);
         m_onMissingCell.validateSettings(settings);
         m_onBadValue.validateSettings(settings);
+        m_fileManySheets.validateSettings(settings);
+        m_fileSingleHiddenSheets.validateSettings(settings);
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────
