@@ -86,7 +86,7 @@ Examples:
 
 **Plugin ID:** `org.geki.knime.excelformreader`
 **Node name:** Excel Form Reader
-**Category:** `/io/read`
+**Category:** `/community-extensions/io`
 **KNIME API version:** 5.3.x
 
 ### What this node does
