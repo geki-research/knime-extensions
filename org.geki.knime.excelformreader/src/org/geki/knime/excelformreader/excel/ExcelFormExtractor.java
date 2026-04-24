@@ -82,7 +82,7 @@ public class ExcelFormExtractor {
         if (values.isEmpty()) {
             return DataType.getMissingCell();
         }
-        return new StringCell(String.join(", ", values)); // TODO: expose range delimiter in new settings
+        return new StringCell(String.join(", ", values));
     }
 
     private DataCell handleMissingCell(final FieldMapping mapping, final Sheet sheet) {

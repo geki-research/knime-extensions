@@ -4,8 +4,10 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Deque;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -16,6 +18,8 @@ import java.util.stream.Stream;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.usermodel.WorkbookFactory;
+import org.geki.knime.excelformreader.ExcelFormReaderSettings.SheetFilterMode;
+import org.geki.knime.excelformreader.ExcelFormReaderSettings.SheetSelection;
 import org.geki.knime.excelformreader.domain.ReadingMode;
 import org.knime.core.node.NodeLogger;
 
@@ -38,23 +42,44 @@ public class WorkbookIterator implements Iterator<WorkbookIterator.Entry>, Close
         }
     }
 
-    private final List<Path> files;
-    private final Set<String> excludedSheets;
+    private final List<Path>      files;
+    private final ReadingMode     mode;
+    private final SheetSelection  sheetSelection;
+    private final String          sheetName;
+    private final int             sheetPosition;
+    private final SheetFilterMode sheetFilterMode;
+    private final Set<String>     sheetFilterNames;
+    private final boolean         includeHiddenSheets;
 
-    private int fileIndex = 0;
+    private int     fileIndex        = 0;
     private Workbook currentWorkbook = null;
-    private Path currentFilePath = null;
-    private int sheetIndex = 0;
+    private Path    currentFilePath  = null;
+    private final Deque<Integer> pendingSheetIndices = new ArrayDeque<>();
 
     // Pre-fetch state
-    private Entry cachedNext = null;
-    private boolean fetched = false;
+    private Entry   cachedNext = null;
+    private boolean fetched    = false;
 
     public WorkbookIterator(final Path rootPath,
-                            final ReadingMode mode,
-                            final Set<String> excludedSheets,
-                            final boolean recursive) throws IOException {
-        this.excludedSheets = (excludedSheets != null) ? excludedSheets : Collections.emptySet();
+                             final ReadingMode mode,
+                             final SheetSelection sheetSelection,
+                             final String sheetName,
+                             final int sheetPosition,
+                             final SheetFilterMode sheetFilterMode,
+                             final Set<String> sheetFilterNames,
+                             final boolean includeHiddenSheets,
+                             final boolean recursive,
+                             final boolean includeHiddenFiles,
+                             final boolean includeHiddenFolders,
+                             final boolean filterByExtension,
+                             final Set<String> fileExtensions) throws IOException {
+        this.mode               = mode;
+        this.sheetSelection     = (sheetSelection != null) ? sheetSelection : SheetSelection.FIRST;
+        this.sheetName          = (sheetName != null) ? sheetName : "";
+        this.sheetPosition      = sheetPosition;
+        this.sheetFilterMode    = (sheetFilterMode != null) ? sheetFilterMode : SheetFilterMode.ALL;
+        this.sheetFilterNames   = (sheetFilterNames != null) ? sheetFilterNames : Collections.emptySet();
+        this.includeHiddenSheets = includeHiddenSheets;
 
         if (mode == ReadingMode.SINGLE_FILE) {
             this.files = new ArrayList<>(Collections.singletonList(rootPath));
@@ -62,8 +87,10 @@ public class WorkbookIterator implements Iterator<WorkbookIterator.Entry>, Close
             if (recursive) {
                 try (Stream<Path> stream = Files.walk(rootPath)) {
                     this.files = stream
-                        .filter(Files::isRegularFile)
-                        .filter(p -> p.getFileName().toString().toLowerCase().endsWith(".xlsx"))
+                        .filter(p -> !Files.isDirectory(p))
+                        .filter(p -> matchesExtension(p, filterByExtension, fileExtensions))
+                        .filter(p -> includeHiddenFiles || !isHiddenSafe(p))
+                        .filter(p -> includeHiddenFolders || !isInHiddenDirectory(p, rootPath))
                         .sorted()
                         .collect(Collectors.toList());
                 }
@@ -71,7 +98,8 @@ public class WorkbookIterator implements Iterator<WorkbookIterator.Entry>, Close
                 try (Stream<Path> stream = Files.list(rootPath)) {
                     this.files = stream
                         .filter(Files::isRegularFile)
-                        .filter(p -> p.getFileName().toString().toLowerCase().endsWith(".xlsx"))
+                        .filter(p -> matchesExtension(p, filterByExtension, fileExtensions))
+                        .filter(p -> includeHiddenFiles || !isHiddenSafe(p))
                         .sorted()
                         .collect(Collectors.toList());
                 }
@@ -111,21 +139,19 @@ public class WorkbookIterator implements Iterator<WorkbookIterator.Entry>, Close
         }
     }
 
-    // Advances internal state and returns the next valid (non-excluded) entry,
-    // or null if all files and sheets are exhausted.
-    // Workbooks are closed here only after all their sheets have been yielded —
+    // Advances internal state and returns the next valid entry, or null when exhausted.
+    // The workbook is closed here only after all its pending sheets have been yielded,
     // so any entry's workbook is still open when the caller receives it.
     private Entry findNext() {
         while (true) {
             if (currentWorkbook != null) {
-                while (sheetIndex < currentWorkbook.getNumberOfSheets()) {
-                    final Sheet sheet = currentWorkbook.getSheetAt(sheetIndex++);
-                    if (!isExcluded(sheet.getSheetName())) {
-                        return new Entry(currentFilePath, sheet.getSheetName(), sheet, currentWorkbook);
-                    }
+                if (!pendingSheetIndices.isEmpty()) {
+                    final int idx = pendingSheetIndices.poll();
+                    final Sheet sheet = currentWorkbook.getSheetAt(idx);
+                    return new Entry(currentFilePath, sheet.getSheetName(), sheet, currentWorkbook);
                 }
-                // All sheets of this workbook exhausted — safe to close now because
-                // the last entry from this workbook was already returned by next().
+                // All pending sheets yielded — safe to close now because the last entry
+                // from this workbook was already returned by the previous next() call.
                 closeCurrentWorkbook();
             }
 
@@ -137,12 +163,134 @@ public class WorkbookIterator implements Iterator<WorkbookIterator.Entry>, Close
             try {
                 currentWorkbook = WorkbookFactory.create(file.toFile(), null, true);
                 currentFilePath = file;
-                sheetIndex = 0;
+                pendingSheetIndices.clear();
+                computePendingSheets();
             } catch (final IOException e) {
                 LOGGER.warn("Cannot open workbook '" + file + "': " + e.getMessage());
-                // Continue to the next file
             }
         }
+    }
+
+    private void computePendingSheets() {
+        if (mode == ReadingMode.SINGLE_FILE) {
+            switch (sheetSelection) {
+                case FIRST:
+                    for (int i = 0; i < currentWorkbook.getNumberOfSheets(); i++) {
+                        final Sheet s = currentWorkbook.getSheetAt(i);
+                        if (shouldIncludeSheet(s, currentWorkbook) && hasAnyRows(s)) {
+                            pendingSheetIndices.add(i);
+                            return;
+                        }
+                    }
+                    LOGGER.warn("No suitable sheet found in '" + currentFilePath + "'");
+                    break;
+
+                case BY_NAME:
+                    final Sheet named = currentWorkbook.getSheet(this.sheetName);
+                    if (named == null) {
+                        LOGGER.warn("Sheet '" + this.sheetName + "' not found in '"
+                            + currentFilePath + "'");
+                    } else if (!shouldIncludeSheet(named, currentWorkbook)) {
+                        LOGGER.warn("Sheet '" + this.sheetName + "' is excluded in '"
+                            + currentFilePath + "'");
+                    } else {
+                        pendingSheetIndices.add(currentWorkbook.getSheetIndex(this.sheetName));
+                    }
+                    break;
+
+                case BY_POSITION:
+                    if (sheetPosition >= currentWorkbook.getNumberOfSheets()) {
+                        LOGGER.warn("Sheet position " + sheetPosition + " out of range in '"
+                            + currentFilePath + "' (workbook has "
+                            + currentWorkbook.getNumberOfSheets() + " sheet(s))");
+                    } else {
+                        final Sheet atPos = currentWorkbook.getSheetAt(sheetPosition);
+                        if (!shouldIncludeSheet(atPos, currentWorkbook)) {
+                            LOGGER.warn("Sheet at position " + sheetPosition
+                                + " is excluded in '" + currentFilePath + "'");
+                        } else {
+                            pendingSheetIndices.add(sheetPosition);
+                        }
+                    }
+                    break;
+
+                default:
+                    break;
+            }
+        } else {
+            // FOLDER mode: yield all sheets that pass the filter
+            for (int i = 0; i < currentWorkbook.getNumberOfSheets(); i++) {
+                final Sheet s = currentWorkbook.getSheetAt(i);
+                if (shouldIncludeSheet(s, currentWorkbook)) {
+                    pendingSheetIndices.add(i);
+                }
+            }
+        }
+    }
+
+    private boolean shouldIncludeSheet(final Sheet sheet, final Workbook workbook) {
+        final String name = sheet.getSheetName();
+
+        if (!includeHiddenSheets) {
+            final int idx = workbook.getSheetIndex(name);
+            if (workbook.isSheetHidden(idx)) {
+                return false;
+            }
+        }
+
+        final String nameLower = name.trim().toLowerCase();
+        final Set<String> filterNamesLower = sheetFilterNames.stream()
+            .map(s -> s.trim().toLowerCase())
+            .collect(Collectors.toSet());
+
+        switch (sheetFilterMode) {
+            case ALL:       return true;
+            case BLACKLIST: return !filterNamesLower.contains(nameLower);
+            case WHITELIST: return filterNamesLower.contains(nameLower);
+            default:        return true;
+        }
+    }
+
+    private static boolean hasAnyRows(final Sheet sheet) {
+        final int max = Math.min(10, sheet.getLastRowNum() + 1);
+        for (int r = 0; r < max; r++) {
+            if (sheet.getRow(r) != null) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean matchesExtension(final Path path,
+                                             final boolean filterByExtension,
+                                             final Set<String> extensions) {
+        if (!filterByExtension || extensions.isEmpty()) {
+            return true;
+        }
+        final String name = path.getFileName().toString().toLowerCase();
+        final int dot = name.lastIndexOf('.');
+        return dot >= 0 && extensions.contains(name.substring(dot + 1));
+    }
+
+    private static boolean isHiddenSafe(final Path path) {
+        try {
+            return Files.isHidden(path);
+        } catch (final IOException e) {
+            return false;
+        }
+    }
+
+    // Returns true if any directory component between rootPath (exclusive) and
+    // path (exclusive) is hidden. Used to skip files inside hidden subdirectories.
+    private static boolean isInHiddenDirectory(final Path path, final Path rootPath) {
+        Path parent = path.getParent();
+        while (parent != null && !parent.equals(rootPath)) {
+            if (isHiddenSafe(parent)) {
+                return true;
+            }
+            parent = parent.getParent();
+        }
+        return false;
     }
 
     private void closeCurrentWorkbook() {
@@ -156,12 +304,5 @@ public class WorkbookIterator implements Iterator<WorkbookIterator.Entry>, Close
                 currentFilePath = null;
             }
         }
-    }
-
-    private boolean isExcluded(final String sheetName) {
-        if (excludedSheets.isEmpty()) {
-            return false;
-        }
-        return excludedSheets.contains(sheetName.trim().toLowerCase());
     }
 }

@@ -19,11 +19,14 @@ public class OutputSpecFactory {
     private OutputSpecFactory() {}
 
     public static DataTableSpec createWideSpec(final FormDefinition definition,
-                                                final boolean includeProvenance) {
+                                                final boolean includeSourceFilename,
+                                                final boolean includeSheetName) {
         final List<DataColumnSpec> cols = new ArrayList<>();
 
-        if (includeProvenance) {
+        if (includeSourceFilename) {
             cols.add(new DataColumnSpecCreator("source_file", StringCell.TYPE).createSpec());
+        }
+        if (includeSheetName) {
             cols.add(new DataColumnSpecCreator("sheet_name", StringCell.TYPE).createSpec());
         }
 
@@ -36,11 +39,14 @@ public class OutputSpecFactory {
         return new DataTableSpec(cols.toArray(new DataColumnSpec[0]));
     }
 
-    public static DataTableSpec createLongSpec(final boolean includeProvenance) {
+    public static DataTableSpec createLongSpec(final boolean includeSourceFilename,
+                                                final boolean includeSheetName) {
         final List<DataColumnSpec> cols = new ArrayList<>();
 
-        if (includeProvenance) {
+        if (includeSourceFilename) {
             cols.add(new DataColumnSpecCreator("source_file", StringCell.TYPE).createSpec());
+        }
+        if (includeSheetName) {
             cols.add(new DataColumnSpecCreator("sheet_name", StringCell.TYPE).createSpec());
         }
 

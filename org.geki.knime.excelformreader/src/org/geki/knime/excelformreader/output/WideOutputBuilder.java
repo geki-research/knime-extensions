@@ -15,11 +15,15 @@ import org.knime.core.data.def.StringCell;
 public class WideOutputBuilder {
 
     private final DataTableSpec spec;
-    private final boolean includeProvenance;
+    private final boolean includeSourceFilename;
+    private final boolean includeSheetName;
 
-    public WideOutputBuilder(final DataTableSpec spec, final boolean includeProvenance) {
+    public WideOutputBuilder(final DataTableSpec spec,
+                              final boolean includeSourceFilename,
+                              final boolean includeSheetName) {
         this.spec = spec;
-        this.includeProvenance = includeProvenance;
+        this.includeSourceFilename = includeSourceFilename;
+        this.includeSheetName = includeSheetName;
     }
 
     public DataRow buildRow(final String sourceFile,
@@ -30,8 +34,10 @@ public class WideOutputBuilder {
         final DataCell[] cells = new DataCell[spec.getNumColumns()];
         int i = 0;
 
-        if (includeProvenance) {
+        if (includeSourceFilename) {
             cells[i++] = new StringCell(sourceFile != null ? sourceFile : "");
+        }
+        if (includeSheetName) {
             cells[i++] = new StringCell(sheetName != null ? sheetName : "");
         }
 
@@ -42,7 +48,6 @@ public class WideOutputBuilder {
             cells[i++] = (value != null) ? value : DataType.getMissingCell();
         }
 
-        // Fill any unexpected trailing slots defensively
         while (i < cells.length) {
             cells[i++] = DataType.getMissingCell();
         }
