@@ -35,9 +35,33 @@ knime-extensions/
   README.md                                     ← project documentation
   pom.xml                                       ← parent POM (Tycho config)
   org.geki.knime.excelformreader/               ← Excel Form Reader plugin
+  org.geki.knime.excelformreader.tests/         ← test project
   org.geki.knime.excelformreader.feature/       ← feature project
   org.geki.knime.excelformreader.update/        ← update site
 ```
+
+---
+
+## Test Project
+
+```
+org.geki.knime.excelformreader.tests/
+  testdata/
+    forms/          ← .xlsx test files
+    definitions/    ← CSV form definition tables
+  src/org/geki/knime/excelformreader/tests/
+                    ← JUnit test classes (to be added)
+```
+
+Test fixture: Legacy_IT_System_Assessment_Test.xlsx
+  - 2 data sheets: Test_01, Test_02 (identical layout)
+  - 1 excluded sheet: Config
+  - Data types covered: string, int, date
+  - Data types not covered (unit tests only): double, boolean
+
+Form definition: it_assessment_form_definition.csv
+  - 40 field mappings
+  - Covers all cell address patterns used in the real form
 
 ---
 

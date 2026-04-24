@@ -12,6 +12,7 @@
 
   <modules>
     <module>org.geki.knime.excelformreader</module>
+    <module>org.geki.knime.excelformreader.tests</module>
     <module>org.geki.knime.excelformreader.feature</module>
     <module>org.geki.knime.excelformreader.update</module>
   </modules>
