@@ -59,7 +59,7 @@
     </option>
 
     <option name="Add Source File and Sheet Name Columns">
-      When enabled, adds _source_file and _sheet_name as the first
+      When enabled, adds source_file and sheet_name as the first
       two columns in the output table, identifying the origin of
       each row.
     </option>
@@ -95,7 +95,7 @@
     </inPort>
     <outPort index="0" name="Extracted Data">
       The extracted form data as a flat KNIME table. When provenance
-      columns are enabled, _source_file (String) and _sheet_name (String)
+      columns are enabled, source_file (String) and sheet_name (String)
       are always the first two columns, identifying the origin of each
       row. In wide mode: one row per (file, sheet) pair, one column per
       field. In long mode: one row per (file, sheet, field) triple, with

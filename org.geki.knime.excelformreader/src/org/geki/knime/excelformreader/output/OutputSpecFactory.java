@@ -23,8 +23,8 @@ public class OutputSpecFactory {
         final List<DataColumnSpec> cols = new ArrayList<>();
 
         if (includeProvenance) {
-            cols.add(new DataColumnSpecCreator("_source_file", StringCell.TYPE).createSpec());
-            cols.add(new DataColumnSpecCreator("_sheet_name", StringCell.TYPE).createSpec());
+            cols.add(new DataColumnSpecCreator("source_file", StringCell.TYPE).createSpec());
+            cols.add(new DataColumnSpecCreator("sheet_name", StringCell.TYPE).createSpec());
         }
 
         for (final FieldMapping mapping : definition.getFields()) {
@@ -40,8 +40,8 @@ public class OutputSpecFactory {
         final List<DataColumnSpec> cols = new ArrayList<>();
 
         if (includeProvenance) {
-            cols.add(new DataColumnSpecCreator("_source_file", StringCell.TYPE).createSpec());
-            cols.add(new DataColumnSpecCreator("_sheet_name", StringCell.TYPE).createSpec());
+            cols.add(new DataColumnSpecCreator("source_file", StringCell.TYPE).createSpec());
+            cols.add(new DataColumnSpecCreator("sheet_name", StringCell.TYPE).createSpec());
         }
 
         cols.add(new DataColumnSpecCreator("field_name", StringCell.TYPE).createSpec());

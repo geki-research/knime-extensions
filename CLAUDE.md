@@ -205,7 +205,7 @@ org.geki.knime.excelformreader/
    (SettingsModelString, SettingsModelBoolean, etc.) in Settings class.
    Never use raw strings/booleans for persistent settings.
 
-9. **Provenance columns** — `_source_file` (StringCell) and `_sheet_name`
+9. **Provenance columns** — `source_file` (StringCell) and `sheet_name`
    (StringCell) are always the first two columns when enabled.
 
 10. **Sheet exclusion** — comparison is case-insensitive and trimmed.
