@@ -7,7 +7,7 @@
     icon="./excelformreader.png"
     type="Source">
 
-  <name>Excel Form Reader</name>
+  <name>Excel Reader (non-tabular)</name>
 
   <shortDescription>
     Reads non-tabular, form-structured Excel worksheets into a

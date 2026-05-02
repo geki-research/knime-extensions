@@ -1,6 +1,6 @@
 Manifest-Version: 1.0
 Bundle-ManifestVersion: 2
-Bundle-Name: Excel Form Reader
+Bundle-Name: Excel Reader (non-tabular)
 Bundle-SymbolicName: org.geki.knime.excelformreader;singleton:=true
 Bundle-Version: 1.0.0.qualifier
 Bundle-Vendor: geki-research

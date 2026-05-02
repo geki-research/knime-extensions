@@ -34,7 +34,7 @@ knime-extensions/
   CLAUDE.md                                     ← this file
   README.md                                     ← project documentation
   pom.xml                                       ← parent POM (Tycho config)
-  org.geki.knime.excelformreader/               ← Excel Form Reader plugin
+  org.geki.knime.excelformreader/               ← Excel Reader (non-tabular) plugin
   org.geki.knime.excelformreader.tests/         ← test project
   org.geki.knime.excelformreader.feature/       ← feature project
   org.geki.knime.excelformreader.update/        ← update site
@@ -106,10 +106,10 @@ Examples:
 
 ---
 
-## Plugin Project: Excel Form Reader
+## Plugin Project: Excel Reader (non-tabular)
 
 **Plugin ID:** `org.geki.knime.excelformreader`
-**Node name:** Excel Form Reader
+**Node name:** Excel Reader (non-tabular)
 **Category:** `/community-extensions/io`
 **KNIME API version:** 5.3.x
 

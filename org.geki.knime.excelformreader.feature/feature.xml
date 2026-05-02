@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <feature
   id="org.geki.knime.excelformreader.feature"
-  label="KNIME Excel Form Reader Feature"
+  label="KNIME Excel Reader (non-tabular) Feature"
   version="1.0.0.qualifier"
   provider-name="geki-research">
 
   <description>
-    Provides the Excel Form Reader node for extracting data from
+    Provides the Excel Reader (non-tabular) node for extracting data from
     non-tabular, form-structured Excel worksheets.
   </description>
 

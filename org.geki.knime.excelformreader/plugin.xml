@@ -20,7 +20,7 @@
     <node
       factory-class="org.geki.knime.excelformreader.ExcelFormReaderNodeFactory"
       category-path="/community-extensions/io"
-      name="Excel Form Reader"
+      name="Excel Reader (non-tabular)"
       after=""/>
   </extension>
 </plugin>
