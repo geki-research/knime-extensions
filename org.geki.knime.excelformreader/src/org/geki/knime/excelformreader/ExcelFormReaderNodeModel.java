@@ -139,11 +139,14 @@ public class ExcelFormReaderNodeModel extends NodeModel {
             : ReadingMode.SINGLE_FILE;
 
         final boolean processManySheets = inputMode == InputMode.FOLDER
-            || m_settings.getFileManySheets();
+            ? m_settings.getFolderManySheets()
+            : m_settings.getFileManySheets();
 
         final boolean includeHiddenSheets;
         if (inputMode == InputMode.FOLDER) {
-            includeHiddenSheets = m_settings.isFolderIncludeHiddenSheets();
+            includeHiddenSheets = m_settings.getFolderManySheets()
+                ? m_settings.isFolderIncludeHiddenSheets()
+                : m_settings.isFolderSingleIncludeHiddenSheets();
         } else if (m_settings.getFileManySheets()) {
             includeHiddenSheets = m_settings.isFileIncludeHiddenSheets();
         } else {
@@ -155,13 +158,15 @@ public class ExcelFormReaderNodeModel extends NodeModel {
                 Paths.get(path),
                 readingMode,
                 processManySheets,
-                inputMode == InputMode.SINGLE_FILE
-                    ? m_settings.getFileSheetSelection()
-                    : ExcelFormReaderSettings.SheetSelection.FIRST,
-                inputMode == InputMode.SINGLE_FILE
-                    ? m_settings.getFileSheetName() : "",
-                inputMode == InputMode.SINGLE_FILE
-                    ? m_settings.getFileSheetPosition() : 0,
+                inputMode == InputMode.FOLDER
+                    ? m_settings.getFolderSheetSelection()
+                    : m_settings.getFileSheetSelection(),
+                inputMode == InputMode.FOLDER
+                    ? m_settings.getFolderSheetName()
+                    : m_settings.getFileSheetName(),
+                inputMode == InputMode.FOLDER
+                    ? m_settings.getFolderSheetPosition()
+                    : m_settings.getFileSheetPosition(),
                 inputMode == InputMode.SINGLE_FILE
                     ? m_settings.getFileSheetFilterMode()
                     : m_settings.getFolderSheetFilterMode(),

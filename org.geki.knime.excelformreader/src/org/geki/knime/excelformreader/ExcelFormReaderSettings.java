@@ -39,6 +39,11 @@ public class ExcelFormReaderSettings {
     private static final String CFG_ON_BAD_VALUE                = "cfg_onBadValue";
     private static final String CFG_FILE_MANY_SHEETS            = "cfg_fileManySheets";
     private static final String CFG_FILE_SINGLE_HIDDEN_SHEETS   = "cfg_fileSingleHiddenSheets";
+    private static final String CFG_FOLDER_MANY_SHEETS          = "cfg_folderManySheets";
+    private static final String CFG_FOLDER_SHEET_SELECTION      = "cfg_folderSheetSelection";
+    private static final String CFG_FOLDER_SHEET_NAME           = "cfg_folderSheetName";
+    private static final String CFG_FOLDER_SHEET_POSITION       = "cfg_folderSheetPosition";
+    private static final String CFG_FOLDER_SINGLE_HIDDEN_SHEETS = "cfg_folderSingleHiddenSheets";
 
     // ── Enums ────────────────────────────────────────────────────────────────
 
@@ -143,8 +148,13 @@ public class ExcelFormReaderSettings {
     private final SettingsModelBoolean m_includeSheetName       = new SettingsModelBoolean(CFG_INCLUDE_SHEET_NAME, true);
     private final SettingsModelString  m_onMissingCell          = new SettingsModelString(CFG_ON_MISSING_CELL, "WARN");
     private final SettingsModelString  m_onBadValue             = new SettingsModelString(CFG_ON_BAD_VALUE, "WARN");
-    private final SettingsModelBoolean m_fileManySheets         = new SettingsModelBoolean(CFG_FILE_MANY_SHEETS, false);
-    private final SettingsModelBoolean m_fileSingleHiddenSheets = new SettingsModelBoolean(CFG_FILE_SINGLE_HIDDEN_SHEETS, false);
+    private final SettingsModelBoolean m_fileManySheets          = new SettingsModelBoolean(CFG_FILE_MANY_SHEETS, false);
+    private final SettingsModelBoolean m_fileSingleHiddenSheets  = new SettingsModelBoolean(CFG_FILE_SINGLE_HIDDEN_SHEETS, false);
+    private final SettingsModelBoolean m_folderManySheets         = new SettingsModelBoolean(CFG_FOLDER_MANY_SHEETS, false);
+    private final SettingsModelString  m_folderSheetSelection     = new SettingsModelString(CFG_FOLDER_SHEET_SELECTION, "FIRST");
+    private final SettingsModelString  m_folderSheetName          = new SettingsModelString(CFG_FOLDER_SHEET_NAME, "");
+    private final SettingsModelInteger m_folderSheetPosition      = new SettingsModelInteger(CFG_FOLDER_SHEET_POSITION, 0);
+    private final SettingsModelBoolean m_folderSingleHiddenSheets = new SettingsModelBoolean(CFG_FOLDER_SINGLE_HIDDEN_SHEETS, false);
 
     // ── Typed getters ────────────────────────────────────────────────────────
 
@@ -215,6 +225,12 @@ public class ExcelFormReaderSettings {
     public boolean getFileManySheets() { return m_fileManySheets.getBooleanValue(); }
     public boolean isFileSingleIncludeHiddenSheets() { return m_fileSingleHiddenSheets.getBooleanValue(); }
 
+    public boolean getFolderManySheets() { return m_folderManySheets.getBooleanValue(); }
+    public SheetSelection getFolderSheetSelection() { return SheetSelection.fromString(m_folderSheetSelection.getStringValue()); }
+    public String getFolderSheetName() { return m_folderSheetName.getStringValue(); }
+    public int getFolderSheetPosition() { return m_folderSheetPosition.getIntValue(); }
+    public boolean isFolderSingleIncludeHiddenSheets() { return m_folderSingleHiddenSheets.getBooleanValue(); }
+
     // ── Raw model getters ─────────────────────────────────────────────────────
 
     public SettingsModelString  getInputModeModel()              { return m_inputMode; }
@@ -241,6 +257,11 @@ public class ExcelFormReaderSettings {
     public SettingsModelString  getOnBadValueModel()               { return m_onBadValue; }
     public SettingsModelBoolean getFileManySheeetsModel()          { return m_fileManySheets; }
     public SettingsModelBoolean getFileSingleHiddenSheetsModel()   { return m_fileSingleHiddenSheets; }
+    public SettingsModelBoolean getFolderManySheetsModel()          { return m_folderManySheets; }
+    public SettingsModelString  getFolderSheetSelectionModel()      { return m_folderSheetSelection; }
+    public SettingsModelString  getFolderSheetNameModel()           { return m_folderSheetName; }
+    public SettingsModelInteger getFolderSheetPositionModel()       { return m_folderSheetPosition; }
+    public SettingsModelBoolean getFolderSingleHiddenSheetsModel()  { return m_folderSingleHiddenSheets; }
 
     // ── Persistence ───────────────────────────────────────────────────────────
 
@@ -269,6 +290,11 @@ public class ExcelFormReaderSettings {
         m_onBadValue.saveSettingsTo(settings);
         m_fileManySheets.saveSettingsTo(settings);
         m_fileSingleHiddenSheets.saveSettingsTo(settings);
+        m_folderManySheets.saveSettingsTo(settings);
+        m_folderSheetSelection.saveSettingsTo(settings);
+        m_folderSheetName.saveSettingsTo(settings);
+        m_folderSheetPosition.saveSettingsTo(settings);
+        m_folderSingleHiddenSheets.saveSettingsTo(settings);
     }
 
     public void loadSettings(final NodeSettingsRO settings) throws InvalidSettingsException {
@@ -296,6 +322,11 @@ public class ExcelFormReaderSettings {
         m_onBadValue.loadSettingsFrom(settings);
         m_fileManySheets.loadSettingsFrom(settings);
         m_fileSingleHiddenSheets.loadSettingsFrom(settings);
+        m_folderManySheets.loadSettingsFrom(settings);
+        m_folderSheetSelection.loadSettingsFrom(settings);
+        m_folderSheetName.loadSettingsFrom(settings);
+        m_folderSheetPosition.loadSettingsFrom(settings);
+        m_folderSingleHiddenSheets.loadSettingsFrom(settings);
     }
 
     public void validateSettings(final NodeSettingsRO settings) throws InvalidSettingsException {
@@ -323,6 +354,11 @@ public class ExcelFormReaderSettings {
         m_onBadValue.validateSettings(settings);
         m_fileManySheets.validateSettings(settings);
         m_fileSingleHiddenSheets.validateSettings(settings);
+        m_folderManySheets.validateSettings(settings);
+        m_folderSheetSelection.validateSettings(settings);
+        m_folderSheetName.validateSettings(settings);
+        m_folderSheetPosition.validateSettings(settings);
+        m_folderSingleHiddenSheets.validateSettings(settings);
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────
