@@ -109,7 +109,6 @@ public class ExcelFormReaderNodeDialog extends NodeDialogPane {
     private final JRadioButton m_folderFirstRadio          = new JRadioButton("First");
     private final JRadioButton m_folderByNameRadio         = new JRadioButton("By name");
     private final JRadioButton m_folderByPositionRadio     = new JRadioButton("By position");
-    private final JLabel       m_folderFirstSheetName      = new JLabel("(configure file path first)");
     private final JTextField   m_folderSheetNameField      = new JTextField();
     private final JSpinner     m_folderSheetPosition       =
         new JSpinner(new SpinnerNumberModel(0, 0, 999, 1));
@@ -480,9 +479,8 @@ public class ExcelFormReaderNodeDialog extends NodeDialogPane {
 
         m_folderSingleSheetPanel = new JPanel(new GridBagLayout());
 
-        // Row 0: First radio + first-sheet-name label
-        m_folderSingleSheetPanel.add(m_folderFirstRadio,    gbc(0, 0, 1, false));
-        m_folderSingleSheetPanel.add(m_folderFirstSheetName, gbc(1, 0, 3, true));
+        // Row 0: First radio (full width)
+        m_folderSingleSheetPanel.add(m_folderFirstRadio, gbc(0, 0, 4, false));
 
         // Row 1: By name radio + text field
         m_folderSingleSheetPanel.add(m_folderByNameRadio,    gbc(0, 1, 1, false));
@@ -578,7 +576,6 @@ public class ExcelFormReaderNodeDialog extends NodeDialogPane {
     }
 
     private void updateFolderSheetControls() {
-        m_folderFirstSheetName.setEnabled(m_folderFirstRadio.isSelected());
         m_folderSheetNameField.setEnabled(m_folderByNameRadio.isSelected());
         m_folderSheetPosition.setEnabled(m_folderByPositionRadio.isSelected());
     }
