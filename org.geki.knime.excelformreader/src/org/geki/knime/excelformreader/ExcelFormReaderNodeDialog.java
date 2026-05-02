@@ -231,6 +231,7 @@ public class ExcelFormReaderNodeDialog extends NodeDialogPane {
         m_fileFirstRadio.addItemListener(e -> updateSheetControls());
         m_fileByNameRadio.addItemListener(e -> updateSheetControls());
         m_fileByPositionRadio.addItemListener(e -> updateSheetControls());
+        m_fileSingleHiddenSheets.addItemListener(e -> refreshSheetNames());
 
         m_fileSingleSheetPanel = new JPanel(new GridBagLayout());
 
@@ -361,15 +362,22 @@ public class ExcelFormReaderNodeDialog extends NodeDialogPane {
             return;
         }
 
+        boolean includeHidden = m_fileSingleHiddenSheets.isSelected();
+
         try (Workbook wb = WorkbookFactory.create(file, null, true)) {
             String firstName = null;
             for (int i = 0; i < wb.getNumberOfSheets(); i++) {
+                if (!includeHidden && wb.isSheetHidden(i)) {
+                    continue;
+                }
                 String name = wb.getSheetName(i);
                 m_fileSheetNameCombo.addItem(name);
                 if (firstName == null) firstName = name;
             }
             if (firstName != null) {
                 m_fileFirstSheetName.setText(firstName);
+            } else {
+                m_fileFirstSheetName.setText("(no visible sheets)");
             }
         } catch (Exception e) {
             m_fileFirstSheetName.setText("(error reading file)");
