@@ -305,18 +305,25 @@ org.geki.knime.excelformreader/
 2. **WorkbookIterator must be lazy** — open one workbook at a time, close
    it before opening the next. Never load all workbooks into memory.
 
-3. **OutputSpecFactory runs at configure() time** — this gives KNIME
-   downstream spec knowledge before execution. The definition table is
-   available at configure() via the input port spec.
+3. **OutputSpecFactory runs at both configure() and execute() time** — at
+   configure() only the column *names* of the definition table are known
+   (`FormDefinition.fromSpec()` returns an empty sentinel with no field
+   mappings), so the port 0 spec built there has only the provenance
+   columns in WIDE mode. The full per-field spec is only built at execute(),
+   once `FormDefinition.fromDataTable()` has read the actual rows. See the
+   `configure()` TODO comment in NodeModel and the known limitation below.
 
 4. **Formula evaluation is transparent** — CellValueConverter always uses
    a FormulaEvaluator. Never return formula strings.
 
 5. **Cell ranges (B10:D15)** — read left-to-right, top-to-bottom,
-   concatenated with the configured range delimiter.
+   concatenated with the range delimiter (hardcoded as `", "` in
+   `ExcelFormExtractor` — see rule 12; not user-configurable).
 
-6. **Missing/unresolvable cells** — never throw unchecked exceptions.
-   Honour the error handling settings (FAIL vs WARN+missing value).
+6. **Missing/unresolvable cells** — honour the error handling settings:
+   WARN logs and returns a missing value; FAIL throws a `RuntimeException`
+   (the one deliberate unchecked throw in the extraction path — don't add
+   others for cases this setting doesn't cover).
 
 7. **Apache POI is provided by KNIME** — do NOT add POI as a Maven
    dependency. It is declared in MANIFEST.MF as `Require-Bundle`.
@@ -341,9 +348,12 @@ org.geki.knime.excelformreader/
 13. **Port 1** — always produced (may be empty table). Empty is simpler and
     faster than an optional port for large volumes.
 
-14. **LIST validation resolution order** — (1) inline list, (2) named range,
-    (3) same-sheet range, (4) cross-sheet range,
-    (5) fall back to raw formula string.
+14. **LIST validation resolution order** — (1) inline list; (2) a direct
+    range reference, same-sheet or cross-sheet depending on whether the
+    formula contains a `'Sheet'!` qualifier; (3) if that fails to parse as
+    a range, treat the formula as a named range and recursively resolve its
+    `refersToFormula`; (4) if the named range isn't found or resolvable,
+    fall back to the raw formula/name string.
 
 ---
 
@@ -390,12 +400,21 @@ return new BufferedDataTable[]{container.getTable()};
 
 ## What Is Not Yet Implemented
 
-Unit tests — planned for all layers:
-- `CellAddress.parse()` edge cases
-- `CellValueConverter` per data type
-- `FormDefinition.fromDataTable()` column validation
-- `WorkbookIterator` sheet filtering and file discovery
-- `CellMetadataReader` format condition and validation type reading
+Unit tests — covered so far: `CellAddress`, `FieldMapping`, `FormDefinition`
+(construction/filtering), `CellValueConverter`, `CellMetadataReader`,
+`ExcelFormExtractor`, `WorkbookIterator`, `ReadingMode`, `OutputSpecFactory`,
+`WideOutputBuilder`, `LongOutputBuilder`, `LabelOutputBuilder`,
+`ExcelFormReaderSettings`.
+
+Still open:
+- `FormDefinition.fromDataTable()` — deliberately deferred (see the
+  `@Ignore`d `testFromDataTable_placeholder` in `FormDefinitionTest`); needs
+  a live `BufferedDataTable`/`ExecutionContext`, not just a POI fixture.
+- `ExcelFormReaderNodeModel`, `ExcelFormReaderNodeDialog`,
+  `ExcelFormReaderNodeFactory` — need a live KNIME workflow/UI runtime to
+  test meaningfully; not covered at the unit level. The unused
+  `testdata/forms/*.xlsx` and `testdata/definitions/*.csv` fixtures are
+  integration-test candidates for these, not yet wired up.
 
 Known limitations:
 - `configure()` returns partial spec in WIDE mode (see TODO comment above
