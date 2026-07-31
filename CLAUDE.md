@@ -69,7 +69,10 @@ org.geki.knime.excelformreader.tests/
     forms/          ← .xlsx test files
     definitions/    ← CSV form definition tables
   src/org/geki/knime/excelformreader/tests/
-                    ← JUnit test classes (to be added)
+                    ← 13 JUnit test classes covering the domain, excel
+                      and output layers plus the settings class; see
+                      "What Is Not Yet Implemented" for the tally and
+                      what remains uncovered
 ```
 
 Test fixture: Legacy_IT_System_Assessment_Test.xlsx
