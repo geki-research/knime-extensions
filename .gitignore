@@ -42,3 +42,6 @@ target/
 # OS
 .DS_Store
 Thumbs.db
+
+# Local Claude Code session reports — working notes, not published
+reports/
