@@ -20,11 +20,29 @@ and transformation.
 | Item | Detail |
 |---|---|
 | OS | Debian 12 |
-| Java | OpenJDK 17 (required — KNIME 5.x is strict about this) |
-| Build system | Maven 3.9+ with Eclipse Tycho 4.0.6 |
+| Java | Sources compile at **17**; bundle declares **JavaSE-21** — see below |
+| Build system | Maven 3.9+ with Eclipse Tycho 4.0.13 on `main` (the `releases/*` branches are still on 4.0.6) |
 | IDE | Eclipse for RCP and RAP Developers 2024-03 |
 | Eclipse workspace | `~/knime-dev/workspace` |
 | KNIME target platform | `~/knime-dev/knime-sdk-setup` → `KNIME-AP.target` (1897 plugins) |
+
+### Java level — 17 compile, 21 runtime (deliberate)
+
+| Setting | Value | Where |
+|---|---|---|
+| Source/target compile level | **17** | `tycho-compiler-plugin` in `pom.xml` (authoritative) |
+| `maven.compiler.source/target` | **17** | `pom.xml` properties (kept in sync; not what governs) |
+| `Bundle-RequiredExecutionEnvironment` | **JavaSE-21** | plugin `MANIFEST.MF` |
+
+The divergence is intentional. KNIME 5.12+ ships and runs on Java 21, which is
+why the bundle declares `JavaSE-21` as its BREE. Sources nevertheless compile at
+**17** so the same code stays portable to the `releases/5.5` and `releases/5.8`
+branches, whose target platforms are still on Java 17. Java 17 bytecode runs
+correctly under a Java 21 runtime, so nothing is lost on newer platforms.
+Verified: compiled classes are major version 61 (Java 17).
+
+`releases/5.12` follows a **different convention** — PR #2 compiles that branch
+at 21. Do not assume the 17 rule holds there.
 
 ---
 
@@ -51,7 +69,10 @@ org.geki.knime.excelformreader.tests/
     forms/          ← .xlsx test files
     definitions/    ← CSV form definition tables
   src/org/geki/knime/excelformreader/tests/
-                    ← JUnit test classes (to be added)
+                    ← 13 JUnit test classes covering the domain, excel
+                      and output layers plus the settings class; see
+                      "What Is Not Yet Implemented" for the tally and
+                      what remains uncovered
 ```
 
 Test fixture: Legacy_IT_System_Assessment_Test.xlsx
@@ -75,7 +96,7 @@ Form definition: it_assessment_form_definition.csv
 ```bash
 # Full build
 cd ~/knime-dev/knime-extensions
-mvn clean verify
+mvn -U clean verify
 
 # Build output (update site) is at:
 org.geki.knime.excelformreader.update/target/repository/
@@ -83,6 +104,32 @@ org.geki.knime.excelformreader.update/target/repository/
 
 BUILD SUCCESS is the only acceptable outcome before committing.
 Always run the build and confirm success before committing any code changes.
+
+### Always pass `-U`
+
+Tycho's default `cache first` update mode never re-fetches a `content.jar` it
+already holds, so a local build can silently resolve months-old target-platform
+metadata and then fail on artifacts the server has since deleted. `-U` is the
+cure. If a cache becomes corrupt, move `~/.m2/repository/.cache/tycho` aside —
+that is the recovery step.
+
+Alternatives were tested and **all failed**: waiting for the cache to expire,
+`-Dtycho.p2.transport.min-cache-minutes=0`, and
+`-Dtycho.p2.transport.update=forced`.
+
+### Do not judge resolution by `.source` bundle download counts
+
+`.source` bundle download counts are **not a valid instrument** for judging what
+the build resolves. `mvn clean` empties `target/` but not
+`~/.m2/repository/p2/osgi/bundle/`, so a second consecutive run against the same
+repository reports zero downloads whatever the configuration — the count tracks
+local cache state, not resolution.
+
+Use `org.geki.knime.excelformreader.tests/target/work/configuration/config.ini`
+instead: its `osgi.bundles` property is the literal list of bundles provisioned
+into the test runtime. (`target/skippedP2Dependencies.txt` is written by Tycho
+regardless of dependency-resolution configuration — measured identical with and
+without `optionalDependencies=ignore` — so it does not discriminate on its own.)
 
 ---
 
@@ -93,15 +140,20 @@ Always run the build and confirm success before committing any code changes.
 | `main` | nightly (default) | `knime-nightly` |
 | `releases/5.5` | `https://update.knime.com/analytics-platform/5.5` | `knime-5.5` |
 | `releases/5.8` | `https://update.knime.com/analytics-platform/5.8` | `knime-5.8` |
-| `releases/5.12` | `https://update.knime.com/analytics-platform/5.12` | `knime-5.12` |
+| `releases/5.12` | `https://update.knime.com/analytics-platform/lts/5.12` | `knime-5.12` |
 
 Maven profiles in `pom.xml` control the active p2 repository. Each release
 branch sets its profile as `activeByDefault`; `main` defaults to nightly.
 
 ```bash
-mvn clean verify              # uses nightly profile (main branch default)
-mvn clean verify -P knime-5.5 # explicitly use 5.5 update site
+mvn -U clean verify              # uses nightly profile (main branch default)
+mvn -U clean verify -P knime-5.5 # explicitly use 5.5 update site
 ```
+
+The `5.12` entry must be the `lts/` URL. Tycho 4.0.13 caches the
+`/analytics-platform/5.12` → `/analytics-platform/lts/5.12` redirect body under
+the original URL key and then cannot read it, so the unqualified URL fails at
+repository load.
 
 KNIME Jenkins activates the correct profile per branch automatically via
 `-P knime-X.Y` in its build command.
@@ -117,10 +169,14 @@ KNIME Jenkins activates the correct profile per branch automatically via
 
 ## Git Conventions
 
-**Branching strategy:** GitHub Flow
-- `main` — always releasable, always passing build
-- `develop` — integration branch
-- `feature/<name>` — one branch per node or feature
+**Branching strategy:** see "Branch Strategy for KNIME Versions" above — the
+`main` + `releases/X.Y` model is the only one in use.
+- `main` — always releasable, always passing build; development happens here
+- `releases/X.Y` — one long-lived branch per supported KNIME version
+- `feature/<name>` — one branch per node or feature, branched from `main`
+
+There is **no `develop` branch**. Earlier revisions of this file described a
+GitHub Flow variant with one; that branch never existed. Do not create it.
 
 **Commit message format:**
 ```
@@ -134,7 +190,7 @@ Examples:
 ```
 
 **Before every commit:**
-1. `mvn clean verify` must produce BUILD SUCCESS
+1. `mvn -U clean verify` must produce BUILD SUCCESS
 2. `git status` must show only intentional changes
 3. Push to remote immediately after committing
 
@@ -400,6 +456,12 @@ return new BufferedDataTable[]{container.getTable()};
 
 ## What Is Not Yet Implemented
 
+**Current tally: 150 tests — 149 passing, 1 skipped.** The single skipped test is
+`FormDefinitionTest.testFromDataTable_placeholder`, `@Ignore`d because
+`fromDataTable` requires a live `BufferedDataTable`. A build reporting any other
+figure than `Tests run: 150, Failures: 0, Errors: 0, Skipped: 1` needs
+investigating before commit.
+
 Unit tests — covered so far: `CellAddress`, `FieldMapping`, `FormDefinition`
 (construction/filtering), `CellValueConverter`, `CellMetadataReader`,
 `ExcelFormExtractor`, `WorkbookIterator`, `ReadingMode`, `OutputSpecFactory`,
@@ -421,6 +483,66 @@ Known limitations:
   `configure()` in NodeModel — accepted, cosmetic only)
 - Format condition operator reads `CELL_VALUE_IS` rules for operator name;
   other rule types return the condition type name instead
+
+## Known Open Items
+
+Context a future session would otherwise have to rediscover. Current as of
+2026-07-31.
+
+### PR #2 — open against `releases/5.12`
+
+"Fix for 5.12 builds", by `dsaam94` (Ali Marvi, KNIME). Reviewed and assessed
+sound. Two questions remain **unanswered** because the contributor is out of
+office:
+1. What specifically was failing in the 5.12 build?
+2. Is `skipArchive=true` intentional? It stops the update-site ZIP being
+   produced.
+
+Do not merge on the assumption that either answer is settled.
+
+### `releases/5.12` lags `main` by 85 unit tests
+
+65 tests there vs 150 on `main`. A forward-port is worthwhile and **has not been
+done**.
+
+### `<optionalDependencies>ignore</optionalDependencies>` — tried and reverted
+
+Do **not** re-add it. It is a no-op for this project: with and without it the
+test module provisions an identical OSGi runtime — 154 `.source` bundles, 361
+bundles total — and `skippedP2Dependencies.txt` is written identically either
+way (281 entries).
+
+It appeared to work only because `.source` download counts were used as the
+measure, and those track local p2 cache state rather than resolution (see the
+Build section). Recorded here so nobody re-adds it on the strength of
+download-count evidence.
+
+### The dialog is legacy Swing
+
+`ExcelFormReaderNodeDialog` extends `NodeDialogPane` — the legacy Swing API, not
+the Modern UI / declarative API. KNIME has asked for migration; it is
+**deferred**.
+
+Migration is larger than a dialog swap. KNIME 5.12's documented approach
+replaces the `NodeFactory` / `NodeModel` / `NodeDialogPane` triad with
+`DefaultNodeFactory` plus a `NodeParameters` settings class, and is
+**unavailable below 5.12** — so it cannot be done while `releases/5.5` and
+`releases/5.8` are supported from the same source.
+
+### Test fixtures
+
+Two `.xlsx` fixtures are tracked in `testdata/forms/`; **neither is referenced by
+any unit test** — both are integration-test candidates.
+
+- `Legacy_IT_System_Assessment_Test.xlsx` — the documented one (see Test
+  Project above). Sheet order: `Test_01`, `Test_02`, then hidden `Config`.
+- `Legacy IT System Assessment single-system format 1 ITRQ - Test01.xlsx` —
+  previously undocumented. Same three sheets and the same six named ranges
+  (`EOL_DATE_STATUS`, `LU_LAYER`, `LU_MISSING_EOL_DATE_REASON`, `LU_PROVIDER`,
+  `LU_REF_DATE`, `LU_SUPPORT_TYPE`), but the **hidden `Config` sheet comes
+  first**. That ordering is what makes it useful: it exercises "first sheet"
+  resolution and the include-hidden-worksheets flag, which the other fixture
+  cannot distinguish. Note the spaces in the filename.
 
 ## Node Icon
 
