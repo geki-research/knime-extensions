@@ -21,7 +21,7 @@ and transformation.
 |---|---|
 | OS | Debian 12 |
 | Java | Sources compile at **17**; bundle declares **JavaSE-21** — see below |
-| Build system | Maven 3.9+ with Eclipse Tycho 4.0.6 |
+| Build system | Maven 3.9+ with Eclipse Tycho 4.0.13 on `main` (the `releases/*` branches are still on 4.0.6) |
 | IDE | Eclipse for RCP and RAP Developers 2024-03 |
 | Eclipse workspace | `~/knime-dev/workspace` |
 | KNIME target platform | `~/knime-dev/knime-sdk-setup` → `KNIME-AP.target` (1897 plugins) |
