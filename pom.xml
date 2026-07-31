@@ -22,10 +22,24 @@
     <module>org.geki.knime.excelformreader.update</module>
   </modules>
 
+  <!--
+    Compile level (17) deliberately diverges from the bundle's declared
+    required execution environment (JavaSE-21 in MANIFEST.MF).
+
+    KNIME 5.12+ ships and runs on Java 21, which is why the bundle declares
+    JavaSE-21 as its BREE. Sources are nevertheless compiled at 17 so that the
+    same code remains portable to the releases/5.5 and releases/5.8 branches,
+    whose target platforms are still on Java 17. Java 17 bytecode runs
+    correctly under a Java 21 runtime, so nothing is lost on newer platforms.
+
+    Note that tycho-compiler-plugin's <source>/<target> below is what actually
+    governs compilation; the maven.compiler.* properties are kept in sync with
+    it so the two never disagree.
+  -->
   <properties>
     <tycho.version>4.0.13</tycho.version>
-    <maven.compiler.source>21</maven.compiler.source>
-    <maven.compiler.target>21</maven.compiler.target>
+    <maven.compiler.source>17</maven.compiler.source>
+    <maven.compiler.target>17</maven.compiler.target>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
 
