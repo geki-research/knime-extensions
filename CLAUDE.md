@@ -481,6 +481,66 @@ Known limitations:
 - Format condition operator reads `CELL_VALUE_IS` rules for operator name;
   other rule types return the condition type name instead
 
+## Known Open Items
+
+Context a future session would otherwise have to rediscover. Current as of
+2026-07-31.
+
+### PR #2 — open against `releases/5.12`
+
+"Fix for 5.12 builds", by `dsaam94` (Ali Marvi, KNIME). Reviewed and assessed
+sound. Two questions remain **unanswered** because the contributor is out of
+office:
+1. What specifically was failing in the 5.12 build?
+2. Is `skipArchive=true` intentional? It stops the update-site ZIP being
+   produced.
+
+Do not merge on the assumption that either answer is settled.
+
+### `releases/5.12` lags `main` by 85 unit tests
+
+65 tests there vs 150 on `main`. A forward-port is worthwhile and **has not been
+done**.
+
+### `<optionalDependencies>ignore</optionalDependencies>` — tried and reverted
+
+Do **not** re-add it. It is a no-op for this project: with and without it the
+test module provisions an identical OSGi runtime — 154 `.source` bundles, 361
+bundles total — and `skippedP2Dependencies.txt` is written identically either
+way (281 entries).
+
+It appeared to work only because `.source` download counts were used as the
+measure, and those track local p2 cache state rather than resolution (see the
+Build section). Recorded here so nobody re-adds it on the strength of
+download-count evidence.
+
+### The dialog is legacy Swing
+
+`ExcelFormReaderNodeDialog` extends `NodeDialogPane` — the legacy Swing API, not
+the Modern UI / declarative API. KNIME has asked for migration; it is
+**deferred**.
+
+Migration is larger than a dialog swap. KNIME 5.12's documented approach
+replaces the `NodeFactory` / `NodeModel` / `NodeDialogPane` triad with
+`DefaultNodeFactory` plus a `NodeParameters` settings class, and is
+**unavailable below 5.12** — so it cannot be done while `releases/5.5` and
+`releases/5.8` are supported from the same source.
+
+### Test fixtures
+
+Two `.xlsx` fixtures are tracked in `testdata/forms/`; **neither is referenced by
+any unit test** — both are integration-test candidates.
+
+- `Legacy_IT_System_Assessment_Test.xlsx` — the documented one (see Test
+  Project above). Sheet order: `Test_01`, `Test_02`, then hidden `Config`.
+- `Legacy IT System Assessment single-system format 1 ITRQ - Test01.xlsx` —
+  previously undocumented. Same three sheets and the same six named ranges
+  (`EOL_DATE_STATUS`, `LU_LAYER`, `LU_MISSING_EOL_DATE_REASON`, `LU_PROVIDER`,
+  `LU_REF_DATE`, `LU_SUPPORT_TYPE`), but the **hidden `Config` sheet comes
+  first**. That ordering is what makes it useful: it exercises "first sheet"
+  resolution and the include-hidden-worksheets flag, which the other fixture
+  cannot distinguish. Note the spaces in the filename.
+
 ## Node Icon
 
 Node icon extracted from the KNIME native Excel Reader node for visual
