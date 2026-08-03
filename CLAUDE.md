@@ -561,11 +561,6 @@ successful build of `releases/5.12` produces **no `.zip`** in
 65 tests there vs 150 on `main`. A forward-port is worthwhile and **has not been
 done**. Unaffected by the PR #2 merge — still outstanding.
 
-### `releases/5.12` lags `main` by 85 unit tests
-
-65 tests there vs 150 on `main`. A forward-port is worthwhile and **has not been
-done**.
-
 ### `<optionalDependencies>ignore</optionalDependencies>` — tried and reverted
 
 Do **not** re-add it. It is a no-op for this project: with and without it the
