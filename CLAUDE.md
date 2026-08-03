@@ -20,11 +20,54 @@ and transformation.
 | Item | Detail |
 |---|---|
 | OS | Debian 12 |
-| Java | OpenJDK 17 (required — KNIME 5.x is strict about this) |
+| Java | Sources compile at **17**; bundle declares **JavaSE-17** — see below |
 | Build system | Maven 3.9+ with Eclipse Tycho 4.0.6 |
 | IDE | Eclipse for RCP and RAP Developers 2024-03 |
 | Eclipse workspace | `~/knime-dev/workspace` |
 | KNIME target platform | `~/knime-dev/knime-sdk-setup` → `KNIME-AP.target` (1897 plugins) |
+
+### Java level — 17 compile, 17 runtime (this branch)
+
+| Setting | Value | Where |
+|---|---|---|
+| Source/target compile level | **17** | `tycho-compiler-plugin` `<source>/<target>` in `<build><plugins>` — **authoritative on this branch** |
+| `maven.compiler.source/target` | **17** | `pom.xml` properties (kept in sync; **not** what governs here) |
+| `Bundle-RequiredExecutionEnvironment` | **JavaSE-17** | both `MANIFEST.MF` files |
+
+There is no compile/runtime divergence on this branch. The KNIME 5.8 target
+platform runs on Java 17, the bundles declare `JavaSE-17`, and sources compile at
+17 to match. Verified empirically: compiled classes are **major version 61
+(Java 17)**.
+
+**Which mechanism sets the compile level differs between branches — check before
+changing it.** Tycho's `source`/`target` parameters default to
+`${maven.compiler.source}` / `${maven.compiler.target}`, and an explicit
+`<configuration>` block on `tycho-compiler-plugin` overrides that default.
+
+On **this branch** that explicit block is present in `<build><plugins>`, so it
+**governs at 17** and `maven.compiler.*` is inert — editing the properties alone
+would be a silent no-op. `main` and `releases/5.5` work the same way.
+
+On `releases/5.12` the rule is **reversed**: PR #2 declares the plugin only under
+`<pluginManagement>` with no `<configuration>`, so there `maven.compiler.*` is
+what sets the level, and it is 21. Do not carry a compile-level change between
+branches without checking which form applies.
+
+### A local JDK 21 will emit a warning here
+
+Building this branch on a Java 21 JDK prints:
+
+```
+[WARNING] Using JavaSE-21 to fulfill requested profile of JavaSE-17. This might
+lead to faulty dependency resolution, consider defining a suitable JDK in the
+toolchains.xml.
+```
+
+Expected, and not a fault: the BREE is `JavaSE-17` but only a 21 JDK is
+installed, so Tycho substitutes it. The build passes and the bytecode is still
+major version 61. It does mean dependency resolution was not performed under the
+declared environment — configure a `toolchains.xml` with a real JDK 17 if that
+needs to be trusted locally rather than on CI.
 
 ---
 
@@ -51,7 +94,10 @@ org.geki.knime.excelformreader.tests/
     forms/          ← .xlsx test files
     definitions/    ← CSV form definition tables
   src/org/geki/knime/excelformreader/tests/
-                    ← JUnit test classes (to be added)
+                    ← 13 JUnit test classes covering the domain, excel
+                      and output layers plus the settings class; see
+                      "What Is Not Yet Implemented" for the tally and
+                      what remains uncovered
 ```
 
 Test fixture: Legacy_IT_System_Assessment_Test.xlsx
@@ -75,7 +121,7 @@ Form definition: it_assessment_form_definition.csv
 ```bash
 # Full build
 cd ~/knime-dev/knime-extensions
-mvn clean verify
+mvn -U clean verify
 
 # Build output (update site) is at:
 org.geki.knime.excelformreader.update/target/repository/
@@ -84,14 +130,102 @@ org.geki.knime.excelformreader.update/target/repository/
 BUILD SUCCESS is the only acceptable outcome before committing.
 Always run the build and confirm success before committing any code changes.
 
+### Always pass `-U`
+
+Tycho's default `cache first` update mode never re-fetches a `content.jar` it
+already holds, so a local build can silently resolve months-old target-platform
+metadata and then fail on artifacts the server has since deleted. `-U` is the
+cure. If a cache becomes corrupt, move `~/.m2/repository/.cache/tycho` aside —
+that is the recovery step.
+
+Alternatives were tested and **all failed**: waiting for the cache to expire,
+`-Dtycho.p2.transport.min-cache-minutes=0`, and
+`-Dtycho.p2.transport.update=forced`.
+
+### Do not judge resolution by `.source` bundle download counts
+
+`.source` bundle download counts are **not a valid instrument** for judging what
+the build resolves. `mvn clean` empties `target/` but not
+`~/.m2/repository/p2/osgi/bundle/`, so a second consecutive run against the same
+repository reports zero downloads whatever the configuration — the count tracks
+local cache state, not resolution.
+
+Use `org.geki.knime.excelformreader.tests/target/work/configuration/config.ini`
+instead: its `osgi.bundles` property is the literal list of bundles provisioned
+into the test runtime. (`target/skippedP2Dependencies.txt` is written by Tycho
+regardless of dependency-resolution configuration — measured identical with and
+without `optionalDependencies=ignore` — so it does not discriminate on its own.)
+
+---
+
+## Branch Strategy for KNIME Versions
+
+### Per-branch facts
+
+Per-branch facts are maintained on `main` in `CLAUDE.md`. Do not duplicate them
+here.
+
+### This branch — `releases/5.8`
+
+| Item | Value |
+|---|---|
+| Active profile | `knime-5.8`, set `activeByDefault` in `pom.xml` |
+| p2 repository | `https://update.knime.com/analytics-platform/5.8` |
+| Tycho | **4.0.6** — see below |
+| Compile level | 17, set by the `tycho-compiler-plugin` block — see "Java level" above |
+| BREE | `JavaSE-17`, both manifests |
+| `Require-Bundle` upper bounds | `6.0.0` — see below |
+
+```bash
+mvn -U clean verify   # uses the knime-5.8 profile — this branch's default
+```
+
+No `-P` is needed on this branch; `knime-5.8` is already the default. KNIME
+Jenkins passes `-P knime-5.8` explicitly anyway, which selects the same profile.
+
+**Tycho stays at 4.0.6 here — do not bump it.** 4.0.13 resolves optional
+dependencies that 4.0.6 ignores, which is what turned `main`'s build red, and it
+mishandles the `/analytics-platform/5.12` redirect. This branch builds green on
+4.0.6 and KNIME has sent no Tycho-bump PR for it.
+
+**`Require-Bundle` upper bounds stay narrow — `[5.5.0,6.0.0)` in the plugin
+manifest, `[5.3.0,6.0.0)` in the tests manifest.** `main` carries `7.0.0` and
+this branch deliberately does not, so **a diff against `main` will show it — that
+is intentional, not drift.** `main` needs the wide range because it builds
+against nightly, which moves toward 6.x; this branch is pinned to the 5.8 update
+site and will never meet a 6.x platform. The narrow bound also states what has
+actually been tested: this branch has never been built against KNIME 6.x.
+
+The non-default `knime-5.12` profile in this POM must carry the `lts/` URL.
+Tycho 4.0.13 caches the `/analytics-platform/5.12` →
+`/analytics-platform/lts/5.12` redirect body under the original URL key and then
+cannot read it, so the unqualified URL fails at repository load. **This branch
+runs 4.0.6, which follows the redirect correctly, so the `lts/` form is a
+precaution here rather than load-bearing** — it matters only if anyone builds
+this tree with `-P knime-5.12` on a newer Tycho.
+
+KNIME Jenkins activates the correct profile per branch automatically via
+`-P knime-X.Y` in its build command.
+
+**New release branch checklist:**
+1. `git checkout -b releases/X.Y` from `main`
+2. Set `<activeByDefault>true</activeByDefault>` on the `knime-X.Y` profile
+   in `pom.xml` (remove it from `knime-nightly`)
+3. Commit, push branch
+4. Notify KNIME team to add a build job for the new branch
+
 ---
 
 ## Git Conventions
 
-**Branching strategy:** GitHub Flow
-- `main` — always releasable, always passing build
-- `develop` — integration branch
-- `feature/<name>` — one branch per node or feature
+**Branching strategy:** see "Branch Strategy for KNIME Versions" above — the
+`main` + `releases/X.Y` model is the only one in use.
+- `main` — always releasable, always passing build; development happens here
+- `releases/X.Y` — one long-lived branch per supported KNIME version
+- `feature/<name>` — one branch per node or feature, branched from `main`
+
+There is **no `develop` branch**. Earlier revisions of this file described a
+GitHub Flow variant with one; that branch never existed. Do not create it.
 
 **Commit message format:**
 ```
@@ -105,7 +239,7 @@ Examples:
 ```
 
 **Before every commit:**
-1. `mvn clean verify` must produce BUILD SUCCESS
+1. `mvn -U clean verify` must produce BUILD SUCCESS
 2. `git status` must show only intentional changes
 3. Push to remote immediately after committing
 
@@ -155,36 +289,75 @@ Each (file, sheet) pair = one form instance = one output row (wide mode).
 - Configurable via dialog toggle
 
 ### Dialog settings
-| Panel | Setting | Type | Default |
-|---|---|---|---|
-| General / Input | Input mode | Radio | Single File |
-| General / Output | Output format | Radio | Wide |
-| General / Output | Include source filename | Boolean | true |
-| General / Output | Include sheet name | Boolean | true |
-| General / Output | Include label fields in port 0 | Boolean | false |
-| General / Output | Output label fields in port 1 | Boolean | true |
-| General / Output | Include format condition operator columns | Boolean | false |
-| General / Output | Include validation type columns | Boolean | false |
-| General / Error Handling | On missing cell | Radio | Warn |
-| General / Error Handling | On unparseable value | Radio | Warn |
-| File / Input Location | Read from | Dropdown | Local File System |
-| File / Input Location | File path | String | — |
-| File / Select Sheet(s) | Process single/many sheets | Radio | Single |
-| File / Select Sheet(s) | Sheet selection (single) | Radio | First |
-| File / Select Sheet(s) | Include hidden worksheets (single) | Boolean | false |
-| File / Select Sheet(s) | Sheet filter mode (many) | Radio | All |
-| File / Select Sheet(s) | Include hidden worksheets (many) | Boolean | false |
-| Folder / Input Location | Folder path | String | — |
-| Folder / Input Location | Include subfolders | Boolean | false |
-| Folder / Input Location | Include hidden folders | Boolean | false |
-| Folder / File Filter | Filter by file extension | Radio | Selected |
-| Folder / File Filter | File extensions | String | xlsx |
-| Folder / File Filter | Include hidden files | Boolean | false |
-| Folder / Select Sheet(s) | Process single/many sheets | Radio | Single |
-| Folder / Select Sheet(s) | Sheet selection (single) | Radio | First |
-| Folder / Select Sheet(s) | Include hidden worksheets (single) | Boolean | false |
-| Folder / Select Sheet(s) | Sheet filter mode (many) | Radio | All |
-| Folder / Select Sheet(s) | Include hidden worksheets (many) | Boolean | false |
+
+Every row below is a control in `ExcelFormReaderNodeDialog`. The **Settings key**
+column is the `CFG_*` constant in `ExcelFormReaderSettings` that persists it;
+`(none)` marks a control that is **not persisted**. **Shown when** records the
+parent control whose selection reveals or enables the row — blank means always
+visible and enabled.
+
+| Panel | Setting | Type | Default | Settings key | Shown when |
+|---|---|---|---|---|---|
+| General / Input | Input mode | Radio | Single File | `cfg_inputMode` | |
+| General / Output | Output format | Radio | Wide | `cfg_outputFormat` | |
+| General / Output | Include source filename | Boolean | true | `cfg_includeSourceFilename` | |
+| General / Output | Include sheet name | Boolean | true | `cfg_includeSheetName` | |
+| General / Output | Include label fields in port 0 | Boolean | false | `cfg_includeLabelFields` | |
+| General / Output | Output label fields in port 1 | Boolean | true | `cfg_outputLabelPort` | |
+| General / Output | Include format condition operator columns | Boolean | false | `cfg_includeFormatCondition` | |
+| General / Output | Include validation type columns | Boolean | false | `cfg_includeValidationType` | |
+| General / Error Handling | On missing cell | Radio | Warn | `cfg_onMissingCell` | |
+| General / Error Handling | On unparseable value | Radio | Warn | `cfg_onBadValue` | |
+| File / Input Location | Read from | Combo, one fixed item `Local File System` | — | **(none) — not persisted** | |
+| File / Input Location | File path | String | — | `cfg_filePath` | |
+| File / Select Sheet(s) | Process single/many sheets | Radio | Single | `cfg_fileManySheets` | |
+| File / Select Sheet(s) | Include hidden worksheets (single) | Boolean | false | `cfg_fileSingleHiddenSheets` | Process **single** sheet |
+| File / Select Sheet(s) | Sheet selection (single) | Radio | First | `cfg_fileSheetSelection` | Process **single** sheet |
+| File / Select Sheet(s) | Sheet name (single) | Dropdown, populated from the selected file | — | `cfg_fileSheetName` | Sheet selection = **By name** |
+| File / Select Sheet(s) | Sheet position (single) | Integer spinner, 0–999 | 0 | `cfg_fileSheetPosition` | Sheet selection = **By position** |
+| File / Select Sheet(s) | Include hidden worksheets (many) | Boolean | false | `cfg_fileHiddenSheets` | Process **many** sheets |
+| File / Select Sheet(s) | Sheet filter mode (many) | Radio | All | `cfg_fileSheetFilterMode` | Process **many** sheets |
+| File / Select Sheet(s) | Sheet names (many) | String, comma-separated | — | `cfg_fileSheetFilterNames` | Sheet filter mode = **Blacklist** or **Whitelist** |
+| Folder / Input Location | Read from | Combo, one fixed item `Local File System` | — | **(none) — not persisted** | |
+| Folder / Input Location | Folder path | String | — | `cfg_folderPath` | |
+| Folder / Input Location | Include subfolders | Boolean | false | `cfg_recursive` | |
+| Folder / Input Location | Include hidden folders | Boolean | false | `cfg_includeHiddenFolders` | Enabled only while **Include subfolders** is checked; unchecking it clears this box |
+| Folder / File Filter | Filter by file extension | Radio | Selected | `cfg_filterByExtension` | |
+| Folder / File Filter | File extensions | String | xlsx | `cfg_fileExtensions` | **Filter by file extension** selected |
+| Folder / File Filter | Include hidden files | Boolean | false | `cfg_includeHiddenFiles` | |
+| Folder / Select Sheet(s) | Process single/many sheets | Radio | Single | `cfg_folderManySheets` | |
+| Folder / Select Sheet(s) | Include hidden worksheets (single) | Boolean | false | `cfg_folderSingleHiddenSheets` | Process **single** sheet |
+| Folder / Select Sheet(s) | Sheet selection (single) | Radio | First | `cfg_folderSheetSelection` | Process **single** sheet |
+| Folder / Select Sheet(s) | Sheet name (single) | String (free text — **not** a dropdown, unlike the File tab) | — | `cfg_folderSheetName` | Sheet selection = **By name** |
+| Folder / Select Sheet(s) | Sheet position (single) | Integer spinner, 0–999 | 0 | `cfg_folderSheetPosition` | Sheet selection = **By position** |
+| Folder / Select Sheet(s) | Include hidden worksheets (many) | Boolean | false | `cfg_folderHiddenSheets` | Process **many** sheets |
+| Folder / Select Sheet(s) | Sheet filter mode (many) | Radio | All | `cfg_folderSheetFilterMode` | Process **many** sheets |
+| Folder / Select Sheet(s) | Sheet names (many) | String, comma-separated | — | `cfg_folderSheetFilterNames` | Sheet filter mode = **Blacklist** or **Whitelist** |
+
+**Count check: 35 rows = 33 persisted settings + 2 unpersisted "Read from"
+combos.** `ExcelFormReaderSettings` holds exactly 33 `SettingsModel` fields and
+33 `CFG_*` keys, each saved, loaded and validated. Every key appears in the
+Settings key column exactly once. If those numbers stop agreeing, the table has
+drifted — same reasoning as the single authoritative test tally.
+
+Not in the table: the two `Browse...` buttons and the first-sheet-name preview
+label, which are actions and display only, and carry no state.
+
+**The two "Read from" combos are not settings — and are deliberately so.** Each
+is constructed with the single item `"Local File System"`, added to its Input
+Location box, and then never saved, loaded or read; no `CFG_*` key backs either
+one. They remain unpersisted **by design**, and the count check above stays as it
+is: 35 rows = 33 persisted + 2 unpersisted.
+
+They are **intentional placeholders**, confirmed by the project owner. They serve
+two purposes: they mirror the "Read from" control in KNIME's native Excel Reader,
+so this node looks consistent with the platform's own file-reading nodes; and
+they reserve the position in the layout for future KNIME file-system support.
+
+**Do not remove them as dead code.** An unbacked control carrying one fixed item
+looks exactly like leftover scaffolding to anyone reading the code cold — this
+note is what should stop a future cleanup from deleting it. Earlier revisions of
+this file recorded their status as an open question; it is settled.
 
 ### Output Ports
 
@@ -276,18 +449,25 @@ org.geki.knime.excelformreader/
 2. **WorkbookIterator must be lazy** — open one workbook at a time, close
    it before opening the next. Never load all workbooks into memory.
 
-3. **OutputSpecFactory runs at configure() time** — this gives KNIME
-   downstream spec knowledge before execution. The definition table is
-   available at configure() via the input port spec.
+3. **OutputSpecFactory runs at both configure() and execute() time** — at
+   configure() only the column *names* of the definition table are known
+   (`FormDefinition.fromSpec()` returns an empty sentinel with no field
+   mappings), so the port 0 spec built there has only the provenance
+   columns in WIDE mode. The full per-field spec is only built at execute(),
+   once `FormDefinition.fromDataTable()` has read the actual rows. See the
+   `configure()` TODO comment in NodeModel and the known limitation below.
 
 4. **Formula evaluation is transparent** — CellValueConverter always uses
    a FormulaEvaluator. Never return formula strings.
 
 5. **Cell ranges (B10:D15)** — read left-to-right, top-to-bottom,
-   concatenated with the configured range delimiter.
+   concatenated with the range delimiter (hardcoded as `", "` in
+   `ExcelFormExtractor` — see rule 12; not user-configurable).
 
-6. **Missing/unresolvable cells** — never throw unchecked exceptions.
-   Honour the error handling settings (FAIL vs WARN+missing value).
+6. **Missing/unresolvable cells** — honour the error handling settings:
+   WARN logs and returns a missing value; FAIL throws a `RuntimeException`
+   (the one deliberate unchecked throw in the extraction path — don't add
+   others for cases this setting doesn't cover).
 
 7. **Apache POI is provided by KNIME** — do NOT add POI as a Maven
    dependency. It is declared in MANIFEST.MF as `Require-Bundle`.
@@ -312,9 +492,12 @@ org.geki.knime.excelformreader/
 13. **Port 1** — always produced (may be empty table). Empty is simpler and
     faster than an optional port for large volumes.
 
-14. **LIST validation resolution order** — (1) inline list, (2) named range,
-    (3) same-sheet range, (4) cross-sheet range,
-    (5) fall back to raw formula string.
+14. **LIST validation resolution order** — (1) inline list; (2) a direct
+    range reference, same-sheet or cross-sheet depending on whether the
+    formula contains a `'Sheet'!` qualifier; (3) if that fails to parse as
+    a range, treat the formula as a named range and recursively resolve its
+    `refersToFormula`; (4) if the named range isn't found or resolvable,
+    fall back to the raw formula/name string.
 
 ---
 
@@ -361,18 +544,112 @@ return new BufferedDataTable[]{container.getTable()};
 
 ## What Is Not Yet Implemented
 
-Unit tests — planned for all layers:
-- `CellAddress.parse()` edge cases
-- `CellValueConverter` per data type
-- `FormDefinition.fromDataTable()` column validation
-- `WorkbookIterator` sheet filtering and file discovery
-- `CellMetadataReader` format condition and validation type reading
+**Current tally: 150 tests — 149 passing, 1 skipped.** The single skipped test is
+`FormDefinitionTest.testFromDataTable_placeholder`, `@Ignore`d because
+`fromDataTable` requires a live `BufferedDataTable`. A build reporting any other
+figure than `Tests run: 150, Failures: 0, Errors: 0, Skipped: 1` needs
+investigating before commit.
+
+Unit tests — covered so far: `CellAddress`, `FieldMapping`, `FormDefinition`
+(construction/filtering), `CellValueConverter`, `CellMetadataReader`,
+`ExcelFormExtractor`, `WorkbookIterator`, `ReadingMode`, `OutputSpecFactory`,
+`WideOutputBuilder`, `LongOutputBuilder`, `LabelOutputBuilder`,
+`ExcelFormReaderSettings`.
+
+Still open:
+- `FormDefinition.fromDataTable()` — deliberately deferred (see the
+  `@Ignore`d `testFromDataTable_placeholder` in `FormDefinitionTest`); needs
+  a live `BufferedDataTable`/`ExecutionContext`, not just a POI fixture.
+- `ExcelFormReaderNodeModel`, `ExcelFormReaderNodeDialog`,
+  `ExcelFormReaderNodeFactory` — need a live KNIME workflow/UI runtime to
+  test meaningfully; not covered at the unit level. The unused
+  `testdata/forms/*.xlsx` and `testdata/definitions/*.csv` fixtures are
+  integration-test candidates for these, not yet wired up.
 
 Known limitations:
 - `configure()` returns partial spec in WIDE mode (see TODO comment above
   `configure()` in NodeModel — accepted, cosmetic only)
 - Format condition operator reads `CELL_VALUE_IS` rules for operator name;
   other rule types return the condition type name instead
+
+## Known Open Items
+
+Context a future session would otherwise have to rediscover. Current as of
+2026-08-03.
+
+### PR #2 and issue #3 — another branch's business
+
+Recorded here only so nobody re-investigates them from this branch. **Neither
+affects `releases/5.8`.**
+
+PR #2 ("Fix for 5.12 builds", by `dsaam94` — Ali Marvi, KNIME) was merged into
+**`releases/5.12`** on 2026-08-03. It restructured that branch's POM only. Two
+questions about it remain open and live in **issue #3**:
+https://github.com/geki-research/knime-extensions/issues/3 — what was actually
+failing in the 5.12 Jenkins build, and whether `skipArchive=true` is intentional.
+
+None of that configuration exists on this branch: no `<pluginManagement>` block,
+no jgit timestamp provider, no `skipArchive`, no aarch64 environment. This branch
+still produces a normal update-site ZIP.
+
+### Forward-port from `main` — DONE for this branch
+
+This branch previously ran 65 tests against `main`'s 150. The 8 missing test
+classes and the `Export-Package` line four of them require were forward-ported
+from `main`'s commit `af65de0`, together with the `feature.xml` copyright fix
+(`09b6aa8`), the `knime-5.12` `lts/` URL precaution (`54bf8b6`) and the
+`.gitignore` entry (`16a3ee2`). **This branch now runs 150 / 1, matching `main`.**
+
+Product code was already byte-identical to `main` before the port and was not
+touched.
+
+**Two of `main`'s commits were deliberately not ported, and should stay that
+way:**
+
+- **`dae2711`** ("standardise compile level on Java 17") — a no-op here that
+  conflicts. This branch is already at 17 via the explicit
+  `tycho-compiler-plugin` block.
+- **`d885e90`** ("drop unused `org.knime.core.ui` bundle requirement") — that
+  line has never existed on this branch.
+
+### `<optionalDependencies>ignore</optionalDependencies>` — tried and reverted
+
+Do **not** re-add it. It is a no-op for this project: with and without it the
+test module provisions an identical OSGi runtime — 154 `.source` bundles, 361
+bundles total — and `skippedP2Dependencies.txt` is written identically either
+way (281 entries).
+
+It appeared to work only because `.source` download counts were used as the
+measure, and those track local p2 cache state rather than resolution (see the
+Build section). Recorded here so nobody re-adds it on the strength of
+download-count evidence.
+
+### The dialog is legacy Swing
+
+`ExcelFormReaderNodeDialog` extends `NodeDialogPane` — the legacy Swing API, not
+the Modern UI / declarative API. KNIME has asked for migration; it is
+**deferred**.
+
+Migration is larger than a dialog swap. KNIME 5.12's documented approach
+replaces the `NodeFactory` / `NodeModel` / `NodeDialogPane` triad with
+`DefaultNodeFactory` plus a `NodeParameters` settings class, and is
+**unavailable below 5.12** — so it cannot be done while `releases/5.5` and
+`releases/5.8` are supported from the same source.
+
+### Test fixtures
+
+Two `.xlsx` fixtures are tracked in `testdata/forms/`; **neither is referenced by
+any unit test** — both are integration-test candidates.
+
+- `Legacy_IT_System_Assessment_Test.xlsx` — the documented one (see Test
+  Project above). Sheet order: `Test_01`, `Test_02`, then hidden `Config`.
+- `Legacy IT System Assessment single-system format 1 ITRQ - Test01.xlsx` —
+  previously undocumented. Same three sheets and the same six named ranges
+  (`EOL_DATE_STATUS`, `LU_LAYER`, `LU_MISSING_EOL_DATE_REASON`, `LU_PROVIDER`,
+  `LU_REF_DATE`, `LU_SUPPORT_TYPE`), but the **hidden `Config` sheet comes
+  first**. That ordering is what makes it useful: it exercises "first sheet"
+  resolution and the include-hidden-worksheets flag, which the other fixture
+  cannot distinguish. Note the spaces in the filename.
 
 ## Node Icon
 
