@@ -53,6 +53,55 @@ On `main`, `releases/5.5` and `releases/5.8` the rule is **reversed**: an explic
 properties there is a silent no-op. Do not carry a compile-level change between
 branches without checking which form applies.
 
+### Why the compile level also sets the API surface (ecj, not javac)
+
+**The compile level does more here than its name suggests. It sets the visible
+API surface, not just the language level and bytecode version.**
+
+**Tycho compiles with the Eclipse Compiler for Java (ecj), not javac.** This
+branch uses **ecj 3.41.0.v20250213-1140**, supplied by `tycho-compiler-plugin`
+4.0.13 — read it from any build log:
+
+```
+[INFO] Compiling 17 source files … using Eclipse Compiler for Java(TM) 3.41.0.v20250213-1140
+```
+
+**ecj applies release semantics from the effective source level by itself.** A
+call to an API newer than that level is a **compile error**, not a runtime
+surprise — no `--release` flag is required to get that behaviour.
+
+On this branch the effective level is **21**, so the Java 21 API surface is
+available and correct for the Java 21 runtime KNIME 5.12 ships on. It reaches the
+compiler via `maven.compiler.*` rather than a `tycho-compiler-plugin`
+`<configuration>` block — see "Java level" above for that mechanism; it is not
+restated here. Confirmed on this branch by measured bytecode: **major version 65**.
+
+**Measured on the sibling branches**, where the same ecj behaviour is visible
+because their level is lower: `Math.clamp` (Java 21) is a **compile error** on
+`main`, `releases/5.5` and `releases/5.8`, while `java.util.HexFormat` (Java 17)
+compiles. The mechanism was isolated on `main` by changing only its
+`<source>/<target>` from 17 to 21 while holding the BREE at `JavaSE-21`: the same
+`Math.clamp` call then compiled. **So the compile level is the constraint, and the
+BREE is not.**
+
+**`<release>` is therefore unnecessary anywhere in this repository.**
+`tycho-compiler-plugin` accepts it and it coexists with `<source>/<target>`
+without error, but it is redundant — ecj already enforces what it would enforce.
+No branch carries it, and none needs it; its absence is not an omission.
+
+**The javac contrast — this is the part that matters.** Under **javac**,
+`-source`/`-target` really do control only the language level and bytecode
+version: `javac -source 17 -target 17` on a JDK 21 **compiles** a Java 21 API
+call with only a warning, emits major-version-61 bytecode, and throws
+`NoSuchMethodError` at runtime on Java 17. Only `javac --release 17` rejects it.
+**That reasoning is sound but does not apply to this project**, because this
+project does not compile with javac. Do not transplant it here.
+
+**Therefore: do not treat the compile level as cosmetic.** On this branch it is
+what keeps the build *at* 21 and matched to its runtime. Lowering it would
+silently narrow the API surface; on the Java 17 branches, raising it would let
+post-17 APIs into a bundle shipping to a Java 17 runtime.
+
 ---
 
 ## Repository Structure
