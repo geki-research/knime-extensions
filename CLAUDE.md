@@ -21,7 +21,7 @@ and transformation.
 |---|---|
 | OS | Debian 12 |
 | Java | Sources compile at **17**; bundle declares **JavaSE-21** — see below |
-| Build system | Maven 3.9+ with Eclipse Tycho 4.0.13 on `main` (the `releases/*` branches are still on 4.0.6) |
+| Build system | Maven 3.9+ with Eclipse Tycho 4.0.13 (other branches: see "Per-branch facts") |
 | IDE | Eclipse for RCP and RAP Developers 2024-03 |
 | Eclipse workspace | `~/knime-dev/workspace` |
 | KNIME target platform | `~/knime-dev/knime-sdk-setup` → `KNIME-AP.target` (1897 plugins) |
@@ -30,19 +30,25 @@ and transformation.
 
 | Setting | Value | Where |
 |---|---|---|
-| Source/target compile level | **17** | `tycho-compiler-plugin` in `pom.xml` (authoritative) |
-| `maven.compiler.source/target` | **17** | `pom.xml` properties (kept in sync; not what governs) |
+| Source/target compile level | **17** | `tycho-compiler-plugin` in `pom.xml` (authoritative **on this branch** — see below) |
+| `maven.compiler.source/target` | **17** | `pom.xml` properties (kept in sync; not what governs here) |
 | `Bundle-RequiredExecutionEnvironment` | **JavaSE-21** | plugin `MANIFEST.MF` |
 
 The divergence is intentional. KNIME 5.12+ ships and runs on Java 21, which is
 why the bundle declares `JavaSE-21` as its BREE. Sources nevertheless compile at
-**17** so the same code stays portable to the `releases/5.5` and `releases/5.8`
-branches, whose target platforms are still on Java 17. Java 17 bytecode runs
-correctly under a Java 21 runtime, so nothing is lost on newer platforms.
+**17** so the same code stays portable to the older release branches, which are
+still on Java 17 (per-branch BREEs are in "Per-branch facts"). Java 17 bytecode
+runs correctly under a Java 21 runtime, so nothing is lost on newer platforms.
 Verified: compiled classes are major version 61 (Java 17).
 
-`releases/5.12` follows a **different convention** — PR #2 compiles that branch
-at 21. Do not assume the 17 rule holds there.
+**Which mechanism governs is itself branch-dependent — check before changing a
+compile level.** On this branch `tycho-compiler-plugin` carries an explicit
+`<source>/<target>` block, so it wins and `maven.compiler.*` is inert. On
+`releases/5.12` there is no such block — the plugin is declared under
+`<pluginManagement>` with a version only — so `maven.compiler.*` is what sets the
+level there, and it is **21**, not 17. The rule above is exactly reversed on that
+branch. Editing the wrong one of the two is a silent no-op. Full detail per
+branch: "Per-branch facts".
 
 ---
 
@@ -574,8 +580,8 @@ Context a future session would otherwise have to rediscover. Current as of
 "Fix for 5.12 builds", by `dsaam94` (Ali Marvi, KNIME). Reviewed in depth,
 assessed sound, and merged as **`38f2515`** — a true merge commit with two
 parents, so Ali Marvi's commit `1a7ed37` and authorship are preserved intact.
-`releases/5.12` is now at `38f2515` and builds green under `-P knime-5.12` at
-**65 tests / 1 skipped**.
+`releases/5.12` is now at `38f2515` and builds green under `-P knime-5.12` (tally
+in "Per-branch facts").
 
 It was merged while the contributor was out of office rather than leaving the
 5.12 branch blocked for several weeks. That was a deliberate call, made on the
@@ -599,8 +605,9 @@ successful build of `releases/5.12` produces **no `.zip`** in
 
 ### `releases/5.12` lags `main` by 85 unit tests
 
-65 tests there vs 150 on `main`. A forward-port is worthwhile and **has not been
-done**. Unaffected by the PR #2 merge — still outstanding.
+Both tallies are in "Per-branch facts"; the gap is 85 tests. A forward-port is
+worthwhile and **has not been done**. Unaffected by the PR #2 merge — still
+outstanding.
 
 ### `<optionalDependencies>ignore</optionalDependencies>` — tried and reverted
 
