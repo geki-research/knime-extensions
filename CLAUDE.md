@@ -50,6 +50,77 @@ level there, and it is **21**, not 17. The rule above is exactly reversed on tha
 branch. Editing the wrong one of the two is a silent no-op. Full detail per
 branch: "Per-branch facts".
 
+### Why `<source>`/`<target>` are sufficient (ecj, not javac)
+
+**`<source>`/`<target>` do more here than their names suggest. They set the
+visible API surface, not just the language level and bytecode version.**
+
+**Tycho compiles with the Eclipse Compiler for Java (ecj), not javac.** This
+branch uses **ecj 3.41.0.v20250213-1140**, supplied by `tycho-compiler-plugin`
+4.0.13 — read it from any build log:
+
+```
+[INFO] Compiling 17 source files … using Eclipse Compiler for Java(TM) 3.41.0.v20250213-1140
+```
+
+**ecj applies release semantics from `<source>`/`<target>` by itself.** A call to
+an API newer than the declared level is a **compile error**, not a runtime
+surprise. Measured on this branch:
+
+| Probe | Introduced | Result |
+|---|---|---|
+| `Math.clamp(long, int, int)` | Java 21 | **BUILD FAILURE** — `The method clamp(long, int, int) is undefined for the type Math` |
+
+**This branch is the clearest proof that the BREE is not the constraint.** It
+declares `Bundle-RequiredExecutionEnvironment: JavaSE-21` yet still rejects a
+Java 21 API — so something other than the BREE is enforcing 17. Isolated by
+changing **only** `<source>/<target>` from 17 to 21, leaving the BREE at
+`JavaSE-21`:
+
+```
+<source>21</source><target>21</target>   →   BUILD SUCCESS
+```
+
+The identical `Math.clamp` call then compiled. **`<source>`/`<target>` is the
+constraint; the BREE is not.** On `releases/5.5` and `releases/5.8` the boundary
+was additionally shown to be exact rather than merely "anything recent":
+`java.util.HexFormat` (Java 17) compiles there while `Math.clamp` does not.
+
+**So `<release>` is unnecessary here** — and nowhere in this repository does any
+branch carry it. `tycho-compiler-plugin` accepts it and it coexists with
+`<source>`/`<target>` without error, but it is **redundant**, because ecj already
+enforces what it would enforce. Do not add it believing it closes a hole; there
+is no hole, and its absence is not an omission.
+
+**The javac contrast — this is the part that matters.** Under **javac** the
+intuition behind that suggestion is correct:
+
+```
+$ javac -source 17 -target 17 Probe.java     # JDK 21, calling Math.clamp
+warning: [options] system modules path not set in conjunction with -source 17
+→ COMPILES.  Emits major-version-61 bytecode. Throws NoSuchMethodError on Java 17.
+
+$ javac --release 17 Probe.java
+error: cannot find symbol   Math.clamp
+→ REJECTED.
+```
+
+Under javac, `-source`/`-target` really do control only the language level and
+bytecode version, and only `--release` restricts the API. **That reasoning is
+sound but does not apply to this project**, because this project does not compile
+with javac. Do not transplant it here.
+
+**Therefore: do not treat `<source>`/`<target>` as cosmetic.** Changing them
+widens or narrows the API surface. Raising them on a Java 17 branch would let
+post-17 APIs into a bundle that ships to a Java 17 runtime — code that builds
+green and throws `NoSuchMethodError` in the field.
+
+**No execution-environment warning arises on this branch**, because its BREE
+(`JavaSE-21`) matches the JDK the build runs on. `releases/5.5` and
+`releases/5.8` do emit one (`Using JavaSE-21 to fulfill requested profile of
+JavaSE-17`) and document it in their own `CLAUDE.md`; it was measured to have no
+effect on resolution. Nothing to do here.
+
 ---
 
 ## Repository Structure
@@ -226,6 +297,22 @@ has since been **confirmed by measured bytecode on every branch**:
 | `releases/5.5` | 61 | Java 17 — same |
 | `releases/5.8` | 61 | Java 17 — same |
 | `releases/5.12` | **65** | **Java 21** — `maven.compiler.*` governs, rule inverted |
+
+**Enforced API surface per branch — and no branch carries `<release>`.** The
+compile level is not merely a language-level and bytecode setting here: Tycho
+compiles with **ecj**, which restricts the *visible API* to that level
+automatically. See "Why `<source>`/`<target>` are sufficient (ecj, not javac)".
+
+| Branch | Enforced API surface | Set by |
+|---|---|---|
+| `main` | **17** | `tycho-compiler-plugin` `<source>/<target>` |
+| `releases/5.5` | **17** | `tycho-compiler-plugin` `<source>/<target>` |
+| `releases/5.8` | **17** | `tycho-compiler-plugin` `<source>/<target>` |
+| `releases/5.12` | **21** | `maven.compiler.*` |
+
+**No branch declares `<release>`, and none needs it** — ecj already enforces what
+it would enforce, so its absence everywhere is deliberate, not an omission. Each
+branch documents this in its own `CLAUDE.md`.
 
 **All four tallies are measured**, each from a build on that branch with its own
 default profile. Beware one trap when re-measuring: `mvn -U clean verify
