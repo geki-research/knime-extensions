@@ -294,12 +294,21 @@ drifted — same reasoning as the single authoritative test tally.
 Not in the table: the two `Browse...` buttons and the first-sheet-name preview
 label, which are actions and display only, and carry no state.
 
-**The two "Read from" combos are not settings.** Each is constructed with the
-single item `"Local File System"`, added to its Input Location box, and then
-never saved, loaded or read — no `CFG_*` key backs either one. They mirror the
-"Read from" control in KNIME's native Excel Reader. Whether they are intentional
-placeholders for future file-system support or leftover scaffolding is **an open
-question**; no code change was made either way.
+**The two "Read from" combos are not settings — and are deliberately so.** Each
+is constructed with the single item `"Local File System"`, added to its Input
+Location box, and then never saved, loaded or read; no `CFG_*` key backs either
+one. They remain unpersisted **by design**, and the count check above stays as it
+is: 35 rows = 33 persisted + 2 unpersisted.
+
+They are **intentional placeholders**, confirmed by the project owner. They serve
+two purposes: they mirror the "Read from" control in KNIME's native Excel Reader,
+so this node looks consistent with the platform's own file-reading nodes; and
+they reserve the position in the layout for future KNIME file-system support.
+
+**Do not remove them as dead code.** An unbacked control carrying one fixed item
+looks exactly like leftover scaffolding to anyone reading the code cold — this
+note is what should stop a future cleanup from deleting it. Earlier revisions of
+this file recorded their status as an open question; it is settled.
 
 ### Output Ports
 
