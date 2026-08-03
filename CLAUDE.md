@@ -21,7 +21,7 @@ and transformation.
 |---|---|
 | OS | Debian 12 |
 | Java | Sources compile at **17**; bundle declares **JavaSE-21** — see below |
-| Build system | Maven 3.9+ with Eclipse Tycho 4.0.13 on `main` (the `releases/*` branches are still on 4.0.6) |
+| Build system | Maven 3.9+ with Eclipse Tycho 4.0.13 (other branches: see "Per-branch facts") |
 | IDE | Eclipse for RCP and RAP Developers 2024-03 |
 | Eclipse workspace | `~/knime-dev/workspace` |
 | KNIME target platform | `~/knime-dev/knime-sdk-setup` → `KNIME-AP.target` (1897 plugins) |
@@ -30,19 +30,25 @@ and transformation.
 
 | Setting | Value | Where |
 |---|---|---|
-| Source/target compile level | **17** | `tycho-compiler-plugin` in `pom.xml` (authoritative) |
-| `maven.compiler.source/target` | **17** | `pom.xml` properties (kept in sync; not what governs) |
+| Source/target compile level | **17** | `tycho-compiler-plugin` in `pom.xml` (authoritative **on this branch** — see below) |
+| `maven.compiler.source/target` | **17** | `pom.xml` properties (kept in sync; not what governs here) |
 | `Bundle-RequiredExecutionEnvironment` | **JavaSE-21** | plugin `MANIFEST.MF` |
 
 The divergence is intentional. KNIME 5.12+ ships and runs on Java 21, which is
 why the bundle declares `JavaSE-21` as its BREE. Sources nevertheless compile at
-**17** so the same code stays portable to the `releases/5.5` and `releases/5.8`
-branches, whose target platforms are still on Java 17. Java 17 bytecode runs
-correctly under a Java 21 runtime, so nothing is lost on newer platforms.
+**17** so the same code stays portable to the older release branches, which are
+still on Java 17 (per-branch BREEs are in "Per-branch facts"). Java 17 bytecode
+runs correctly under a Java 21 runtime, so nothing is lost on newer platforms.
 Verified: compiled classes are major version 61 (Java 17).
 
-`releases/5.12` follows a **different convention** — PR #2 compiles that branch
-at 21. Do not assume the 17 rule holds there.
+**Which mechanism governs is itself branch-dependent — check before changing a
+compile level.** On this branch `tycho-compiler-plugin` carries an explicit
+`<source>/<target>` block, so it wins and `maven.compiler.*` is inert. On
+`releases/5.12` there is no such block — the plugin is declared under
+`<pluginManagement>` with a version only — so `maven.compiler.*` is what sets the
+level there, and it is **21**, not 17. The rule above is exactly reversed on that
+branch. Editing the wrong one of the two is a silent no-op. Full detail per
+branch: "Per-branch facts".
 
 ---
 
@@ -135,12 +141,53 @@ without `optionalDependencies=ignore` — so it does not discriminate on its own
 
 ## Branch Strategy for KNIME Versions
 
-| Branch | p2 Repository | Active profile |
-|---|---|---|
-| `main` | nightly (default) | `knime-nightly` |
-| `releases/5.5` | `https://update.knime.com/analytics-platform/5.5` | `knime-5.5` |
-| `releases/5.8` | `https://update.knime.com/analytics-platform/5.8` | `knime-5.8` |
-| `releases/5.12` | `https://update.knime.com/analytics-platform/lts/5.12` | `knime-5.12` |
+### Per-branch facts
+
+**This table is the only place in this file that makes claims about branches
+other than the one you are on.** Everywhere else describes the current branch.
+Anything that changes another branch — a merged PR, a Tycho bump, a profile
+change — **must update this table**, because nothing in the workflow will catch
+the drift: the other branches are never built while working on `main`. If you
+need a per-branch fact, get it here; if you learn one, record it here and nowhere
+else.
+
+| Branch | Tycho | `maven.compiler.*` | `tycho-compiler-plugin` config | What governs compilation | BREE | Default profile → p2 URL | Test tally |
+|---|---|---|---|---|---|---|---|
+| `main` | 4.0.13 | 17 | `<source>17</source><target>17</target>` in `<build><plugins>` | **`tycho-compiler-plugin` → 17** | JavaSE-21 | `knime-nightly` → `https://update.knime.com/analytics-platform/nightly` | 150 / 1 skipped |
+| `releases/5.5` | 4.0.6 | 17 | `<source>17</source><target>17</target>` in `<build><plugins>` | **`tycho-compiler-plugin` → 17** | JavaSE-17 | `knime-5.5` → `https://update.knime.com/analytics-platform/5.5` | not measured |
+| `releases/5.8` | 4.0.6 | 17 | `<source>17</source><target>17</target>` in `<build><plugins>` | **`tycho-compiler-plugin` → 17** | JavaSE-17 | `knime-5.8` → `https://update.knime.com/analytics-platform/5.8` | not measured |
+| `releases/5.12` | 4.0.13 | **21** | **none** — declared in `<pluginManagement>` with `<version>` only, no `<configuration>` | **`maven.compiler.*` → 21** | JavaSE-21 | `knime-5.12` → `https://update.knime.com/analytics-platform/lts/5.12` | 65 / 1 skipped |
+
+**Why `releases/5.12` differs.** Tycho's `source`/`target` parameters default to
+`${maven.compiler.source}` / `${maven.compiler.target}`. On `main`, `5.5` and
+`5.8` an explicit `<configuration>` block overrides that, so the properties are
+inert. On `releases/5.12` the plugin appears only under `<pluginManagement>` with
+a version and no configuration, so nothing overrides the defaults and the
+properties are what actually set the compile level. **The rule is reversed on
+that branch** — check which form applies before changing a compile level.
+
+**Provenance.** Every value above was read from the branch itself via
+`git show origin/<branch>:<path>` against `pom.xml` and
+`org.geki.knime.excelformreader/META-INF/MANIFEST.MF`. The `main` compile level
+is additionally confirmed by measured bytecode (major version 61). The
+"what governs" column is derived from POM structure plus Tycho's documented
+parameter defaults, not from measured bytecode on the release branches.
+
+**`not measured` means not measured.** No test run has been performed on
+`releases/5.5` or `releases/5.8` in this work. Both carry 5 test classes — the
+same count as `releases/5.12`, which runs 65 — but **do not infer a tally from
+that**; record one only after actually running the build on those branches. Note
+that `mvn -U clean verify -P knime-5.5` on `main` reports 150: that is `main`'s
+code against the 5.5 target platform, not the `releases/5.5` branch.
+
+**Latent inconsistency, not currently a fault.** On `releases/5.5` and
+`releases/5.8` the *non-default* `knime-5.12` profile still points at the
+unqualified `https://update.knime.com/analytics-platform/5.12`, not the `lts/`
+URL. Harmless today — both branches are on Tycho 4.0.6, which handles the
+redirect, and that profile is not their default — but it would break if either
+branch moved to 4.0.13. See the `lts/` note below.
+
+### Active profiles
 
 Maven profiles in `pom.xml` control the active p2 repository. Each release
 branch sets its profile as `activeByDefault`; `main` defaults to nightly.
@@ -533,8 +580,8 @@ Context a future session would otherwise have to rediscover. Current as of
 "Fix for 5.12 builds", by `dsaam94` (Ali Marvi, KNIME). Reviewed in depth,
 assessed sound, and merged as **`38f2515`** — a true merge commit with two
 parents, so Ali Marvi's commit `1a7ed37` and authorship are preserved intact.
-`releases/5.12` is now at `38f2515` and builds green under `-P knime-5.12` at
-**65 tests / 1 skipped**.
+`releases/5.12` is now at `38f2515` and builds green under `-P knime-5.12` (tally
+in "Per-branch facts").
 
 It was merged while the contributor was out of office rather than leaving the
 5.12 branch blocked for several weeks. That was a deliberate call, made on the
@@ -558,8 +605,9 @@ successful build of `releases/5.12` produces **no `.zip`** in
 
 ### `releases/5.12` lags `main` by 85 unit tests
 
-65 tests there vs 150 on `main`. A forward-port is worthwhile and **has not been
-done**. Unaffected by the PR #2 merge — still outstanding.
+Both tallies are in "Per-branch facts"; the gap is 85 tests. A forward-port is
+worthwhile and **has not been done**. Unaffected by the PR #2 merge — still
+outstanding.
 
 ### `<optionalDependencies>ignore</optionalDependencies>` — tried and reverted
 
