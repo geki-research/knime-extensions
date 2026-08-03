@@ -111,6 +111,44 @@ org.geki.knime.excelformreader.update/target/repository/
 BUILD SUCCESS is the only acceptable outcome before committing.
 Always run the build and confirm success before committing any code changes.
 
+### Target build environments
+
+`target-platform-configuration` in `pom.xml` declares four:
+
+| `os` | `ws` | `arch` |
+|---|---|---|
+| `linux` | `gtk` | `x86_64` |
+| `win32` | `win32` | `x86_64` |
+| `macosx` | `cocoa` | `x86_64` |
+| `macosx` | `cocoa` | `aarch64` |
+
+These are the three desktop platforms KNIME ships on, plus Apple Silicon. The
+`aarch64` entry was back-ported from `releases/5.12`, where PR #2 added it.
+
+**This list does not control what the extension can be installed on — it is not
+an installability setting.** Tycho's `<environments>` governs which platform
+configurations the *target platform* is resolved for at build time. Adding one
+makes the build check that dependencies resolve for that configuration too;
+removing one does not restrict the output.
+
+**This plugin carries no platform constraint at all, and the produced artifacts
+are installable on any platform KNIME runs on.** Verified rather than assumed:
+
+- `feature.xml` declares no `os` / `ws` / `arch` attribute and no `filter` on the
+  `<plugin>` element
+- neither `MANIFEST.MF` contains `Eclipse-PlatformFilter`, and every
+  `Require-Bundle` is platform-neutral
+- the built JAR contains **no** native library — no `.so`, `.dll`, `.dylib` or
+  `.jnilib`; it is pure Java plus icons and XML
+- in the generated p2 metadata, neither the plugin IU nor the
+  `…feature.feature.group` IU carries a platform filter, and `content.xml`
+  contains **zero** occurrences of `osgi.os`, `osgi.ws` or `osgi.arch`
+
+Measured consequence: adding the `aarch64` entry left the produced update site
+**byte-equivalent** — identical file set, identical unit count, still no platform
+references. So do not reach for this list to fix an install problem; if one ever
+appears on a specific platform, the cause is elsewhere.
+
 ### Always pass `-U`
 
 Tycho's default `cache first` update mode never re-fetches a `content.jar` it
@@ -154,9 +192,19 @@ else.
 | Branch | Tycho | `maven.compiler.*` | `tycho-compiler-plugin` config | What governs compilation | BREE | Default profile → p2 URL | Test tally |
 |---|---|---|---|---|---|---|---|
 | `main` | 4.0.13 | 17 | `<source>17</source><target>17</target>` in `<build><plugins>` | **`tycho-compiler-plugin` → 17** | JavaSE-21 | `knime-nightly` → `https://update.knime.com/analytics-platform/nightly` | 150 / 1 skipped |
-| `releases/5.5` | 4.0.6 | 17 | `<source>17</source><target>17</target>` in `<build><plugins>` | **`tycho-compiler-plugin` → 17** | JavaSE-17 | `knime-5.5` → `https://update.knime.com/analytics-platform/5.5` | not measured |
-| `releases/5.8` | 4.0.6 | 17 | `<source>17</source><target>17</target>` in `<build><plugins>` | **`tycho-compiler-plugin` → 17** | JavaSE-17 | `knime-5.8` → `https://update.knime.com/analytics-platform/5.8` | not measured |
-| `releases/5.12` | 4.0.13 | **21** | **none** — declared in `<pluginManagement>` with `<version>` only, no `<configuration>` | **`maven.compiler.*` → 21** | JavaSE-21 | `knime-5.12` → `https://update.knime.com/analytics-platform/lts/5.12` | 65 / 1 skipped |
+| `releases/5.5` | 4.0.6 | 17 | `<source>17</source><target>17</target>` in `<build><plugins>` | **`tycho-compiler-plugin` → 17** | JavaSE-17 | `knime-5.5` → `https://update.knime.com/analytics-platform/5.5` | 150 / 1 skipped |
+| `releases/5.8` | 4.0.6 | 17 | `<source>17</source><target>17</target>` in `<build><plugins>` | **`tycho-compiler-plugin` → 17** | JavaSE-17 | `knime-5.8` → `https://update.knime.com/analytics-platform/5.8` | 150 / 1 skipped |
+| `releases/5.12` | 4.0.13 | **21** | **none** — declared in `<pluginManagement>` with `<version>` only, no `<configuration>` | **`maven.compiler.*` → 21** | JavaSE-21 | `knime-5.12` → `https://update.knime.com/analytics-platform/lts/5.12` | 150 / 1 skipped |
+
+**Build environments — a deliberate two-and-two split.** `main` and
+`releases/5.12` declare **four** (linux-x86_64, win32-x86_64, macosx-x86_64,
+macosx-**aarch64**); `releases/5.5` and `releases/5.8` declare **three**, lacking
+the aarch64 entry. That asymmetry is intentional, not drift: PR #2 added aarch64
+to `releases/5.12`, it was back-ported to `main`, and the two older branches were
+deliberately left alone because their build configuration is frozen (same
+reasoning as their Tycho 4.0.6 and narrow `Require-Bundle` bounds). Nothing is
+lost by it — see "Target build environments" above: the list is a build-time
+resolution setting, and the artifacts carry no platform filter on any branch.
 
 **Why `releases/5.12` differs.** Tycho's `source`/`target` parameters default to
 `${maven.compiler.source}` / `${maven.compiler.target}`. On `main`, `5.5` and
@@ -166,26 +214,31 @@ a version and no configuration, so nothing overrides the defaults and the
 properties are what actually set the compile level. **The rule is reversed on
 that branch** — check which form applies before changing a compile level.
 
-**Provenance.** Every value above was read from the branch itself via
-`git show origin/<branch>:<path>` against `pom.xml` and
-`org.geki.knime.excelformreader/META-INF/MANIFEST.MF`. The `main` compile level
-is additionally confirmed by measured bytecode (major version 61). The
-"what governs" column is derived from POM structure plus Tycho's documented
-parameter defaults, not from measured bytecode on the release branches.
+**Provenance — all measured, none inferred.** Every value above was read from the
+branch itself via `git show origin/<branch>:<path>` against `pom.xml` and
+`org.geki.knime.excelformreader/META-INF/MANIFEST.MF`. The "what governs" column
+was originally *derived* from POM structure plus Tycho's parameter defaults; it
+has since been **confirmed by measured bytecode on every branch**:
 
-**`not measured` means not measured.** No test run has been performed on
-`releases/5.5` or `releases/5.8` in this work. Both carry 5 test classes — the
-same count as `releases/5.12`, which runs 65 — but **do not infer a tally from
-that**; record one only after actually running the build on those branches. Note
-that `mvn -U clean verify -P knime-5.5` on `main` reports 150: that is `main`'s
-code against the 5.5 target platform, not the `releases/5.5` branch.
+| Branch | Class-file major version | Means |
+|---|---|---|
+| `main` | 61 | Java 17 — the `tycho-compiler-plugin` block governs |
+| `releases/5.5` | 61 | Java 17 — same |
+| `releases/5.8` | 61 | Java 17 — same |
+| `releases/5.12` | **65** | **Java 21** — `maven.compiler.*` governs, rule inverted |
 
-**Latent inconsistency, not currently a fault.** On `releases/5.5` and
-`releases/5.8` the *non-default* `knime-5.12` profile still points at the
-unqualified `https://update.knime.com/analytics-platform/5.12`, not the `lts/`
-URL. Harmless today — both branches are on Tycho 4.0.6, which handles the
-redirect, and that profile is not their default — but it would break if either
-branch moved to 4.0.13. See the `lts/` note below.
+**All four tallies are measured**, each from a build on that branch with its own
+default profile. Beware one trap when re-measuring: `mvn -U clean verify
+-P knime-5.5` **on `main`** also reports 150, but that is `main`'s code against
+the 5.5 target platform, not the `releases/5.5` branch. Check out the branch (or
+clone it) to measure it.
+
+**Resolved: the `knime-5.12` URL is now `lts/` on every branch.** `releases/5.5`
+and `releases/5.8` previously carried the unqualified
+`https://update.knime.com/analytics-platform/5.12` in that non-default profile —
+harmless on Tycho 4.0.6, which follows the redirect, but a trap if either branch
+ever moved to 4.0.13. Both were corrected during the forward-port. No branch
+carries the unqualified form now.
 
 ### Active profiles
 
@@ -580,8 +633,11 @@ Context a future session would otherwise have to rediscover. Current as of
 "Fix for 5.12 builds", by `dsaam94` (Ali Marvi, KNIME). Reviewed in depth,
 assessed sound, and merged as **`38f2515`** — a true merge commit with two
 parents, so Ali Marvi's commit `1a7ed37` and authorship are preserved intact.
-`releases/5.12` is now at `38f2515` and builds green under `-P knime-5.12` (tally
-in "Per-branch facts").
+That branch has since had the forward-port merged on top and builds green under
+`-P knime-5.12` (tally in "Per-branch facts"). The `macosx`/`aarch64` build
+environment PR #2 introduced has been back-ported to `main`; the rest of its
+configuration — `<pluginManagement>`, jgit timestamps, `skipArchive`, surefire
+settings — remains `releases/5.12`-only and was **not** back-ported.
 
 It was merged while the contributor was out of office rather than leaving the
 5.12 branch blocked for several weeks. That was a deliberate call, made on the
@@ -603,11 +659,25 @@ successful build of `releases/5.12` produces **no `.zip`** in
 `org.geki.knime.excelformreader.update-1.0.0-SNAPSHOT.zip`. Anyone hand-building
 `releases/5.12` and expecting a distributable archive will not get one.
 
-### `releases/5.12` lags `main` by 85 unit tests
+### Forward-port to the release branches — DONE
 
-Both tallies are in "Per-branch facts"; the gap is 85 tests. A forward-port is
-worthwhile and **has not been done**. Unaffected by the PR #2 merge — still
-outstanding.
+All three release branches lagged `main` by 85 unit tests (65 vs 150). The gap
+was 8 test classes plus the `Export-Package` line four of them require, both
+carried atomically by `main`'s commit `af65de0`. **All four branches now run
+150 / 1** — see the tallies in "Per-branch facts".
+
+Product code was byte-identical across all four branches before the port and was
+not touched on any of them. Two of `main`'s commits were deliberately **not**
+ported and should stay that way:
+
+- **`dae2711`** ("standardise compile level on Java 17") — cherry-picks *cleanly*
+  onto `releases/5.12` and would silently downgrade it from Java 21 to 17,
+  because there `maven.compiler.*` governs. A no-op that conflicts on 5.5/5.8.
+- **`d885e90`** ("drop unused `org.knime.core.ui` bundle requirement") — that
+  line has never existed on any release branch.
+
+Each release branch records these exclusions in its own `CLAUDE.md` as well, so
+the warning is where a future session on that branch will actually read it.
 
 ### `<optionalDependencies>ignore</optionalDependencies>` — tried and reverted
 
