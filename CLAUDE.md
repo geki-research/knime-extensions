@@ -517,18 +517,40 @@ Known limitations:
 ## Known Open Items
 
 Context a future session would otherwise have to rediscover. Current as of
-2026-07-31.
+2026-08-03.
 
-### PR #2 — open against `releases/5.12`
+### PR #2 — MERGED into `releases/5.12` on 2026-08-03
 
-"Fix for 5.12 builds", by `dsaam94` (Ali Marvi, KNIME). Reviewed and assessed
-sound. Two questions remain **unanswered** because the contributor is out of
-office:
-1. What specifically was failing in the 5.12 build?
-2. Is `skipArchive=true` intentional? It stops the update-site ZIP being
-   produced.
+"Fix for 5.12 builds", by `dsaam94` (Ali Marvi, KNIME). Reviewed in depth,
+assessed sound, and merged as **`38f2515`** — a true merge commit with two
+parents, so Ali Marvi's commit `1a7ed37` and authorship are preserved intact.
+`releases/5.12` is now at `38f2515` and builds green under `-P knime-5.12` at
+**65 tests / 1 skipped**.
 
-Do not merge on the assumption that either answer is settled.
+It was merged while the contributor was out of office rather than leaving the
+5.12 branch blocked for several weeks. That was a deliberate call, made on the
+strength of the review, not an assumption that the open questions were settled.
+
+Those two questions are **not abandoned** — they now live in **issue #3**:
+https://github.com/geki-research/knime-extensions/issues/3
+
+1. **What was actually failing in the 5.12 Jenkins build?** The PR body is empty
+   and no build log is linked; the branch built green locally both before and
+   after the change, so the fix could never be checked against its symptom.
+2. **Is `skipArchive=true` intentional?** Presumed so — the same engineer owns
+   the Jenkins job consuming the output — but unconfirmed.
+
+**Practical consequence of `skipArchive`, measured after the merge:** a
+successful build of `releases/5.12` produces **no `.zip`** in
+`org.geki.knime.excelformreader.update/target/` — only the expanded
+`repository/`. `main` still produces
+`org.geki.knime.excelformreader.update-1.0.0-SNAPSHOT.zip`. Anyone hand-building
+`releases/5.12` and expecting a distributable archive will not get one.
+
+### `releases/5.12` lags `main` by 85 unit tests
+
+65 tests there vs 150 on `main`. A forward-port is worthwhile and **has not been
+done**. Unaffected by the PR #2 merge — still outstanding.
 
 ### `releases/5.12` lags `main` by 85 unit tests
 
