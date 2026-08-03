@@ -53,6 +53,60 @@ On `releases/5.12` the rule is **reversed**: PR #2 declares the plugin only unde
 what sets the level, and it is 21. Do not carry a compile-level change between
 branches without checking which form applies.
 
+### Why `<source>`/`<target>` are sufficient (ecj, not javac)
+
+**`<source>`/`<target>` do more here than their names suggest. They set the
+visible API surface, not just the language level and bytecode version.**
+
+**Tycho compiles with the Eclipse Compiler for Java (ecj), not javac.** This
+branch uses **ecj 3.36.0.v20231114-0937**, supplied by `tycho-compiler-plugin`
+4.0.6 — read it from any build log:
+
+```
+[INFO] Compiling 17 source files … using Eclipse Compiler for Java(TM) 3.36.0.v20231114-0937
+```
+
+**ecj applies release semantics from `<source>`/`<target>` by itself.** A call to
+an API newer than the declared level is a **compile error**, not a runtime
+surprise. Measured on this branch:
+
+| Probe | Introduced | Result |
+|---|---|---|
+| `Math.clamp(long, int, int)` | Java 21 | **BUILD FAILURE** — `The method clamp(long, int, int) is undefined for the type Math` |
+| `java.util.HexFormat` | Java 17 | **BUILD SUCCESS** |
+
+The boundary is therefore **exactly the declared level**, not merely "anything
+recent". A post-17 API cannot reach a Java 17 KNIME runtime through this build,
+because it cannot get past compilation.
+
+**So `<release>` is unnecessary here.** `tycho-compiler-plugin` 4.0.6 does accept
+a `<release>` parameter, and it coexists with `<source>`/`<target>` without error
+— but it is **redundant**, because ecj already enforces what it would enforce.
+Do not add it believing it closes a hole; there is no hole.
+
+**The javac contrast — this is the part that matters.** Under **javac** the
+intuition behind that suggestion is correct:
+
+```
+$ javac -source 17 -target 17 Probe.java     # JDK 21, calling Math.clamp
+warning: [options] system modules path not set in conjunction with -source 17
+→ COMPILES.  Emits major-version-61 bytecode. Throws NoSuchMethodError on Java 17.
+
+$ javac --release 17 Probe.java
+error: cannot find symbol   Math.clamp
+→ REJECTED.
+```
+
+Under javac, `-source`/`-target` really do control only the language level and
+bytecode version, and only `--release` restricts the API. **That reasoning is
+sound but does not apply to this project**, because this project does not compile
+with javac. Do not transplant it here.
+
+**Therefore: do not treat `<source>`/`<target>` as cosmetic.** Changing them
+widens the API surface. Raising them on this branch would let post-17 APIs into a
+bundle that ships to a Java 17 runtime — code that builds green here and throws
+`NoSuchMethodError` in the field.
+
 ### A local JDK 21 will emit a warning here
 
 Building this branch on a Java 21 JDK prints:
@@ -65,9 +119,37 @@ toolchains.xml.
 
 Expected, and not a fault: the BREE is `JavaSE-17` but only a 21 JDK is
 installed, so Tycho substitutes it. The build passes and the bytecode is still
-major version 61. It does mean dependency resolution was not performed under the
-declared environment — configure a `toolchains.xml` with a real JDK 17 if that
-needs to be trusted locally rather than on CI.
+major version 61.
+
+**Measured: the warning has no effect on resolution.** It comes from Tycho's OSGi
+execution-environment resolution — not from the compiler, and unrelated to the
+API-surface question above, which ecj settles correctly on its own. Compared with
+and without a JDK 17 toolchain, using `config.ini`'s `osgi.bundles` (the
+instrument named under "Do not judge resolution by `.source` bundle download
+counts"):
+
+```
+without toolchain:  5 warnings,  244 bundles provisioned
+with toolchain:     0 warnings,  244 bundles provisioned
+diff → identical
+```
+
+The toolchain changes the message and nothing else. Treat the warning as a
+modelling notice, not a fault.
+
+**One honest caveat.** That is measured for the *current* dependency set —
+`org.knime.core`, `org.knime.base` and `org.apache.poi`, none of them
+JDK-version-conditional. A future dependency whose resolution hinged on a
+`java.*` package present in 21 but not 17 could in principle resolve differently.
+Re-measure if the dependency set changes materially.
+
+**A toolchain was considered and declined.** A `~/.m2/toolchains.xml` registering
+a JDK 17 does silence the warning, but it fixes a message rather than a defect;
+it is machine-local, so it would not help a fresh clone, another developer, or
+KNIME's Jenkins; and it would leave one machine building "clean" while every
+other host still warned, making the warning look like a local anomaly. A JDK 17
+is already installed at `/usr/lib/jvm/java-17-openjdk-amd64`, so this remains a
+one-file change if it is ever wanted — no installation required.
 
 ---
 
