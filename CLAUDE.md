@@ -240,36 +240,66 @@ Each (file, sheet) pair = one form instance = one output row (wide mode).
 - Configurable via dialog toggle
 
 ### Dialog settings
-| Panel | Setting | Type | Default |
-|---|---|---|---|
-| General / Input | Input mode | Radio | Single File |
-| General / Output | Output format | Radio | Wide |
-| General / Output | Include source filename | Boolean | true |
-| General / Output | Include sheet name | Boolean | true |
-| General / Output | Include label fields in port 0 | Boolean | false |
-| General / Output | Output label fields in port 1 | Boolean | true |
-| General / Output | Include format condition operator columns | Boolean | false |
-| General / Output | Include validation type columns | Boolean | false |
-| General / Error Handling | On missing cell | Radio | Warn |
-| General / Error Handling | On unparseable value | Radio | Warn |
-| File / Input Location | Read from | Dropdown | Local File System |
-| File / Input Location | File path | String | — |
-| File / Select Sheet(s) | Process single/many sheets | Radio | Single |
-| File / Select Sheet(s) | Sheet selection (single) | Radio | First |
-| File / Select Sheet(s) | Include hidden worksheets (single) | Boolean | false |
-| File / Select Sheet(s) | Sheet filter mode (many) | Radio | All |
-| File / Select Sheet(s) | Include hidden worksheets (many) | Boolean | false |
-| Folder / Input Location | Folder path | String | — |
-| Folder / Input Location | Include subfolders | Boolean | false |
-| Folder / Input Location | Include hidden folders | Boolean | false |
-| Folder / File Filter | Filter by file extension | Radio | Selected |
-| Folder / File Filter | File extensions | String | xlsx |
-| Folder / File Filter | Include hidden files | Boolean | false |
-| Folder / Select Sheet(s) | Process single/many sheets | Radio | Single |
-| Folder / Select Sheet(s) | Sheet selection (single) | Radio | First |
-| Folder / Select Sheet(s) | Include hidden worksheets (single) | Boolean | false |
-| Folder / Select Sheet(s) | Sheet filter mode (many) | Radio | All |
-| Folder / Select Sheet(s) | Include hidden worksheets (many) | Boolean | false |
+
+Every row below is a control in `ExcelFormReaderNodeDialog`. The **Settings key**
+column is the `CFG_*` constant in `ExcelFormReaderSettings` that persists it;
+`(none)` marks a control that is **not persisted**. **Shown when** records the
+parent control whose selection reveals or enables the row — blank means always
+visible and enabled.
+
+| Panel | Setting | Type | Default | Settings key | Shown when |
+|---|---|---|---|---|---|
+| General / Input | Input mode | Radio | Single File | `cfg_inputMode` | |
+| General / Output | Output format | Radio | Wide | `cfg_outputFormat` | |
+| General / Output | Include source filename | Boolean | true | `cfg_includeSourceFilename` | |
+| General / Output | Include sheet name | Boolean | true | `cfg_includeSheetName` | |
+| General / Output | Include label fields in port 0 | Boolean | false | `cfg_includeLabelFields` | |
+| General / Output | Output label fields in port 1 | Boolean | true | `cfg_outputLabelPort` | |
+| General / Output | Include format condition operator columns | Boolean | false | `cfg_includeFormatCondition` | |
+| General / Output | Include validation type columns | Boolean | false | `cfg_includeValidationType` | |
+| General / Error Handling | On missing cell | Radio | Warn | `cfg_onMissingCell` | |
+| General / Error Handling | On unparseable value | Radio | Warn | `cfg_onBadValue` | |
+| File / Input Location | Read from | Combo, one fixed item `Local File System` | — | **(none) — not persisted** | |
+| File / Input Location | File path | String | — | `cfg_filePath` | |
+| File / Select Sheet(s) | Process single/many sheets | Radio | Single | `cfg_fileManySheets` | |
+| File / Select Sheet(s) | Include hidden worksheets (single) | Boolean | false | `cfg_fileSingleHiddenSheets` | Process **single** sheet |
+| File / Select Sheet(s) | Sheet selection (single) | Radio | First | `cfg_fileSheetSelection` | Process **single** sheet |
+| File / Select Sheet(s) | Sheet name (single) | Dropdown, populated from the selected file | — | `cfg_fileSheetName` | Sheet selection = **By name** |
+| File / Select Sheet(s) | Sheet position (single) | Integer spinner, 0–999 | 0 | `cfg_fileSheetPosition` | Sheet selection = **By position** |
+| File / Select Sheet(s) | Include hidden worksheets (many) | Boolean | false | `cfg_fileHiddenSheets` | Process **many** sheets |
+| File / Select Sheet(s) | Sheet filter mode (many) | Radio | All | `cfg_fileSheetFilterMode` | Process **many** sheets |
+| File / Select Sheet(s) | Sheet names (many) | String, comma-separated | — | `cfg_fileSheetFilterNames` | Sheet filter mode = **Blacklist** or **Whitelist** |
+| Folder / Input Location | Read from | Combo, one fixed item `Local File System` | — | **(none) — not persisted** | |
+| Folder / Input Location | Folder path | String | — | `cfg_folderPath` | |
+| Folder / Input Location | Include subfolders | Boolean | false | `cfg_recursive` | |
+| Folder / Input Location | Include hidden folders | Boolean | false | `cfg_includeHiddenFolders` | Enabled only while **Include subfolders** is checked; unchecking it clears this box |
+| Folder / File Filter | Filter by file extension | Radio | Selected | `cfg_filterByExtension` | |
+| Folder / File Filter | File extensions | String | xlsx | `cfg_fileExtensions` | **Filter by file extension** selected |
+| Folder / File Filter | Include hidden files | Boolean | false | `cfg_includeHiddenFiles` | |
+| Folder / Select Sheet(s) | Process single/many sheets | Radio | Single | `cfg_folderManySheets` | |
+| Folder / Select Sheet(s) | Include hidden worksheets (single) | Boolean | false | `cfg_folderSingleHiddenSheets` | Process **single** sheet |
+| Folder / Select Sheet(s) | Sheet selection (single) | Radio | First | `cfg_folderSheetSelection` | Process **single** sheet |
+| Folder / Select Sheet(s) | Sheet name (single) | String (free text — **not** a dropdown, unlike the File tab) | — | `cfg_folderSheetName` | Sheet selection = **By name** |
+| Folder / Select Sheet(s) | Sheet position (single) | Integer spinner, 0–999 | 0 | `cfg_folderSheetPosition` | Sheet selection = **By position** |
+| Folder / Select Sheet(s) | Include hidden worksheets (many) | Boolean | false | `cfg_folderHiddenSheets` | Process **many** sheets |
+| Folder / Select Sheet(s) | Sheet filter mode (many) | Radio | All | `cfg_folderSheetFilterMode` | Process **many** sheets |
+| Folder / Select Sheet(s) | Sheet names (many) | String, comma-separated | — | `cfg_folderSheetFilterNames` | Sheet filter mode = **Blacklist** or **Whitelist** |
+
+**Count check: 35 rows = 33 persisted settings + 2 unpersisted "Read from"
+combos.** `ExcelFormReaderSettings` holds exactly 33 `SettingsModel` fields and
+33 `CFG_*` keys, each saved, loaded and validated. Every key appears in the
+Settings key column exactly once. If those numbers stop agreeing, the table has
+drifted — same reasoning as the single authoritative test tally.
+
+Not in the table: the two `Browse...` buttons and the first-sheet-name preview
+label, which are actions and display only, and carry no state.
+
+**The two "Read from" combos are not settings.** Each is constructed with the
+single item `"Local File System"`, added to its Input Location box, and then
+never saved, loaded or read — no `CFG_*` key backs either one. They mirror the
+"Read from" control in KNIME's native Excel Reader. Whether they are intentional
+placeholders for future file-system support or leftover scaffolding is **an open
+question**; no code change was made either way.
 
 ### Output Ports
 
